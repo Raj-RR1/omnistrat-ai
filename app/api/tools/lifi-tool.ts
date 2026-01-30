@@ -25,8 +25,6 @@ export const getSwapQuote = tool({
         fromAmount,
         fromAddress,
         fromAmountForGas,
-        integrator: 'OmniStratAI',
-        fee: 0.003,
       });
 
       return {
@@ -77,8 +75,6 @@ export const getSwapRoutes = tool({
         fromAddress,
         fromAmountForGas,
         options: {
-          integrator: 'OmniStratAI',
-          fee: 0.003,
           slippage: 0.005,
           order: 'CHEAPEST',
         },
