@@ -1,10 +1,11 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useConnection, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectWallet } from './components/ConnectWallet';
 
+// TODO: Fetch token decimals dynamically or from a centralized config
 function formatAmount(amount: string, symbol: string): string {
   const decimals = ['USDC', 'USDT'].includes(symbol) ? 6 : 18;
   const value = Number(amount) / 10 ** decimals;
@@ -108,6 +109,10 @@ export default function Home() {
 
   const [txState, setTxState] = useState<'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error'>('idle');
 
+  useEffect(() => {
+    if (isConfirmed) setTxState('success');
+  }, [isConfirmed]);
+
   async function handleExecuteSwap(txRequest: any) {
     try {
       const targetChainId = txRequest.chainId;
@@ -118,7 +123,7 @@ export default function Home() {
       }
 
       setTxState('pending');
-      const hash = await sendTransaction({
+      await sendTransaction({
         to: txRequest.to as `0x${string}`,
         data: txRequest.data as `0x${string}`,
         value: txRequest.value ? BigInt(txRequest.value) : undefined,
@@ -126,8 +131,6 @@ export default function Home() {
       });
 
       setTxState('confirming');
-      // Wait briefly then mark success — the useWaitForTransactionReceipt will track confirmation
-      setTxState('success');
     } catch (err) {
       console.error('Swap execution failed:', err);
       setTxState('error');
