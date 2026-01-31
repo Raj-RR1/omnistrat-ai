@@ -1,6 +1,8 @@
 'use client';
 
 import { useChat } from 'ai/react';
+import { useState } from 'react';
+import { useConnection, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectWallet } from './components/ConnectWallet';
 
 function formatAmount(amount: string, symbol: string): string {
@@ -9,7 +11,26 @@ function formatAmount(amount: string, symbol: string): string {
   return `${value.toFixed(decimals === 6 ? 2 : 6)} ${symbol}`;
 }
 
-function SwapQuoteCard({ output }: { output: any }) {
+const EXPLORER_URLS: Record<number, string> = {
+  1: 'https://etherscan.io',
+  42161: 'https://arbiscan.io',
+  137: 'https://polygonscan.com',
+  10: 'https://optimistic.etherscan.io',
+  8453: 'https://basescan.org',
+  11155111: 'https://sepolia.etherscan.io',
+};
+
+function SwapQuoteCard({
+  output,
+  onExecute,
+  txStatus,
+  txHash,
+}: {
+  output: any;
+  onExecute: (tx: any) => void;
+  txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
+  txHash?: string;
+}) {
   if (!output.success) {
     return (
       <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
@@ -30,7 +51,7 @@ function SwapQuoteCard({ output }: { output: any }) {
         <span>{formatAmount(estimate.toAmount, estimate.toToken)}</span>
         <span>Min received:</span>
         <span>{formatAmount(estimate.toAmountMin, estimate.toToken)}</span>
-        {estimate.executionDuration && (
+        {estimate.executionDuration > 0 && (
           <>
             <span>Est. time:</span>
             <span>{estimate.executionDuration}s</span>
@@ -38,22 +59,87 @@ function SwapQuoteCard({ output }: { output: any }) {
         )}
       </div>
       {output.transactionRequest && (
-        <button
-          className="mt-2 w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600"
-          onClick={() => {
-            // Task 3 will wire this up with useSendTransaction
-            alert('Transaction execution coming in Task 3');
-          }}
-        >
-          Execute Swap
-        </button>
+        <>
+          {txStatus === 'success' && txHash ? (
+            <div className="mt-2 p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+              Swap executed! Tx:{' '}
+              <a
+                href={`${EXPLORER_URLS[output.transactionRequest?.chainId] || 'https://etherscan.io'}/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                {txHash.slice(0, 10)}...{txHash.slice(-8)}
+              </a>
+            </div>
+          ) : txStatus === 'error' ? (
+            <div className="mt-2 p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+              Transaction failed. Please try again.
+            </div>
+          ) : (
+            <button
+              className="mt-2 w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50"
+              disabled={txStatus !== 'idle'}
+              onClick={() => onExecute(output.transactionRequest)}
+            >
+              {txStatus === 'switching'
+                ? 'Switching chain...'
+                : txStatus === 'pending'
+                  ? 'Confirm in wallet...'
+                  : txStatus === 'confirming'
+                    ? 'Confirming...'
+                    : 'Execute Swap'}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
 }
 
 export default function Home() {
-  const { messages, input, handleInputChange, handleSubmit } = useChat();
+  const { address, chain } = useConnection();
+  const { messages, input, handleInputChange, handleSubmit } = useChat({
+    body: { walletAddress: address },
+  });
+  const { mutateAsync: sendTransaction, data: txHash, status: sendStatus, reset: resetTx } = useSendTransaction();
+  const { mutateAsync: switchChain } = useSwitchChain();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+
+  const [txState, setTxState] = useState<'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error'>('idle');
+
+  async function handleExecuteSwap(txRequest: any) {
+    try {
+      const targetChainId = txRequest.chainId;
+
+      if (chain?.id !== targetChainId) {
+        setTxState('switching');
+        await switchChain({ chainId: targetChainId });
+      }
+
+      setTxState('pending');
+      const hash = await sendTransaction({
+        to: txRequest.to as `0x${string}`,
+        data: txRequest.data as `0x${string}`,
+        value: txRequest.value ? BigInt(txRequest.value) : undefined,
+        chainId: targetChainId,
+      });
+
+      setTxState('confirming');
+      // Wait briefly then mark success — the useWaitForTransactionReceipt will track confirmation
+      setTxState('success');
+    } catch (err) {
+      console.error('Swap execution failed:', err);
+      setTxState('error');
+      setTimeout(() => {
+        setTxState('idle');
+        resetTx();
+      }, 3000);
+    }
+  }
+
+  const currentTxStatus = txState;
+  const currentTxHash = txHash;
 
   return (
     <div className="flex flex-col h-screen bg-zinc-50 dark:bg-black">
@@ -76,7 +162,15 @@ export default function Home() {
                     invocation.toolName === 'getSwapQuote' &&
                     invocation.state === 'result'
                   ) {
-                    return <SwapQuoteCard key={idx} output={invocation.result} />;
+                    return (
+                      <SwapQuoteCard
+                        key={idx}
+                        output={invocation.result}
+                        onExecute={handleExecuteSwap}
+                        txStatus={currentTxStatus}
+                        txHash={currentTxHash}
+                      />
+                    );
                   }
                   return null;
                 })}
