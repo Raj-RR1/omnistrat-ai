@@ -25,8 +25,8 @@ You have access to the following tools:
 When a user asks to swap tokens:
 1. Ask for any missing information: source chain, destination chain, tokens, amount, and their wallet address.
 2. Use getSwapQuote to fetch a quote.
-3. Present the quote clearly: source amount, destination amount, estimated time, fees.
-4. The user will need to approve the transaction in their wallet.
+3. After the tool returns, DO NOT repeat the quote details (amounts, fees, duration) in your text response — the UI already renders a quote card with all that information. Just say something brief like "Here's your quote. Click Execute Swap to proceed." or "I found a route for you."
+4. If the tool returns an error, explain what went wrong and suggest how to fix it.
 
 Common chain IDs: Ethereum=1, Arbitrum=42161, Polygon=137, Optimism=10, Base=8453, Sepolia=11155111, Arbitrum Sepolia=421614.
 
@@ -45,11 +45,15 @@ Be concise and helpful. If the user hasn't connected their wallet yet, remind th
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const { messages, walletAddress } = await req.json();
+
+  const walletContext = walletAddress
+    ? `\n\nThe user's connected wallet address is: ${walletAddress}. Use this address automatically when calling tools — do not ask the user for their address.`
+    : '\n\nThe user has not connected their wallet yet. Remind them to connect before executing swaps.';
 
   const result = await streamText({
     model: getModel(),
-    system: systemPrompt,
+    system: systemPrompt + walletContext,
     messages,
     tools: {
       getSwapQuote,
