@@ -98,6 +98,147 @@ function SwapQuoteCard({
   );
 }
 
+function AavePositionCard({ output }: { output: any }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Position fetch failed: {output.error}
+      </div>
+    );
+  }
+
+  const { position } = output;
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
+      <p className="font-semibold text-zinc-900 dark:text-zinc-50">Aave v3 Position</p>
+      <div className="grid grid-cols-2 gap-2 text-zinc-700 dark:text-zinc-300">
+        <span>Total Collateral:</span>
+        <span>${position.totalCollateralUSD}</span>
+        <span>Total Debt:</span>
+        <span>${position.totalDebtUSD}</span>
+        <span>Available to Borrow:</span>
+        <span>${position.availableBorrowsUSD}</span>
+        <span>Health Factor:</span>
+        <span>{position.healthFactor}</span>
+        <span>LTV:</span>
+        <span>{position.ltv}</span>
+      </div>
+    </div>
+  );
+}
+
+function AaveTransactionCard({
+  output,
+  args,
+  onExecute,
+  txStatus,
+  txHash,
+}: {
+  output: any;
+  args?: any;
+  onExecute: (tx: any) => void;
+  txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
+  txHash?: string;
+}) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Failed: {output.error}
+      </div>
+    );
+  }
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const transactions = output.transactions;
+
+  // Try to format amount from the tool args
+  const amount = args?.amount;
+  const asset = args?.asset?.toLowerCase();
+  const chainNames: Record<number, string> = { 1: 'Ethereum', 42161: 'Arbitrum', 137: 'Polygon', 10: 'Optimism', 8453: 'Base' };
+  const chainName = args?.chainId ? chainNames[args.chainId] || `Chain ${args.chainId}` : '';
+
+  // Known token addresses to symbols
+  const TOKEN_SYMBOLS: Record<string, string> = {
+    '0xaf88d065e77c8cc2239327c5edb3a432268e5831': 'USDC',
+    '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC',
+    '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359': 'USDC',
+    '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'USDC',
+    '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT',
+    '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': 'WETH',
+    '0x0000000000000000000000000000000000000000': 'ETH',
+  };
+  const tokenSymbol = asset ? TOKEN_SYMBOLS[asset] || 'TOKEN' : 'TOKEN';
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-3">
+      <p className="font-semibold text-zinc-900 dark:text-zinc-50">Aave Transaction</p>
+      {amount && (
+        <div className="text-zinc-700 dark:text-zinc-300">
+          <span>Amount: {formatAmount(amount, tokenSymbol)}</span>
+          {chainName && <span> on {chainName}</span>}
+        </div>
+      )}
+      {transactions.map((tx: any, idx: number) => (
+        <div key={idx} className="space-y-1">
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Step {idx + 1}: {tx.description}
+          </p>
+          {idx === currentStep && (
+            <>
+              {txStatus === 'success' && txHash ? (
+                <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                  Done! Tx:{' '}
+                  <a
+                    href={`${EXPLORER_URLS[tx.transactionRequest?.chainId] || 'https://etherscan.io'}/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                  </a>
+                  {idx < transactions.length - 1 && (
+                    <button
+                      className="ml-2 underline text-green-700 dark:text-green-300"
+                      onClick={() => setCurrentStep(idx + 1)}
+                    >
+                      Next step
+                    </button>
+                  )}
+                </div>
+              ) : txStatus === 'error' ? (
+                <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+                  Transaction failed. Please try again.
+                </div>
+              ) : (
+                <button
+                  className="w-full px-4 py-2 font-semibold text-white bg-purple-500 rounded-lg hover:bg-purple-600 disabled:opacity-50"
+                  disabled={txStatus !== 'idle'}
+                  onClick={() => onExecute(tx.transactionRequest)}
+                >
+                  {txStatus === 'switching'
+                    ? 'Switching chain...'
+                    : txStatus === 'pending'
+                      ? 'Confirm in wallet...'
+                      : txStatus === 'confirming'
+                        ? 'Confirming...'
+                        : `Execute: ${tx.description}`}
+                </button>
+              )}
+            </>
+          )}
+          {idx < currentStep && (
+            <p className="text-xs text-green-600 dark:text-green-400">Completed</p>
+          )}
+          {idx > currentStep && (
+            <p className="text-xs text-zinc-400">Waiting...</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const { address, chain } = useConnection();
   const { messages, input, handleInputChange, handleSubmit } = useChat({
@@ -161,14 +302,27 @@ export default function Home() {
                   </div>
                 )}
                 {(m as any).toolInvocations?.map((invocation: any, idx: number) => {
-                  if (
-                    invocation.toolName === 'getSwapQuote' &&
-                    invocation.state === 'result'
-                  ) {
+                  if (invocation.state !== 'result') return null;
+                  if (invocation.toolName === 'getSwapQuote') {
                     return (
                       <SwapQuoteCard
                         key={idx}
                         output={invocation.result}
+                        onExecute={handleExecuteSwap}
+                        txStatus={currentTxStatus}
+                        txHash={currentTxHash}
+                      />
+                    );
+                  }
+                  if (invocation.toolName === 'getAaveUserPosition') {
+                    return <AavePositionCard key={idx} output={invocation.result} />;
+                  }
+                  if (invocation.toolName === 'getAaveSupplyTx' || invocation.toolName === 'getAaveWithdrawTx') {
+                    return (
+                      <AaveTransactionCard
+                        key={idx}
+                        output={invocation.result}
+                        args={invocation.args}
                         onExecute={handleExecuteSwap}
                         txStatus={currentTxStatus}
                         txHash={currentTxHash}
