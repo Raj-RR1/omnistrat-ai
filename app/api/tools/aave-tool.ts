@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import { createPublicClient, encodeFunctionData, http } from 'viem';
+import { createPublicClient, encodeFunctionData, http, maxUint256 } from 'viem';
 import { arbitrum, mainnet, polygon, optimism, base } from 'viem/chains';
 import { AAVE_POOL_ADDRESSES, AAVE_POOL_ABI, ERC20_ABI } from './aave-config';
 
@@ -126,7 +126,7 @@ export const getAaveWithdrawTx = tool({
   parameters: z.object({
     chainId: z.number().describe('Chain ID where Aave pool is'),
     asset: z.string().describe('The underlying token contract address to withdraw'),
-    amount: z.string().describe('Amount to withdraw in smallest unit. Use max uint256 (115792089237316195423570985008687907853269984665640564039457584007913129639935) for full balance.'),
+    amount: z.string().describe(`Amount to withdraw in smallest unit. Use "${maxUint256.toString()}" for full balance.`),
     userAddress: z.string().describe('The user wallet address withdrawing the asset'),
   }),
   execute: async ({ chainId, asset, amount, userAddress }) => {
