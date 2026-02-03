@@ -1,7 +1,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
-import { getSwapQuote, getSwapRoutes } from '../tools/lifi-tool';
+import { getSwapQuote, getSwapRoutes, getTokenBalances } from '../tools/lifi-tool';
 import { getAaveUserPosition, getAaveSupplyTx, getAaveWithdrawTx } from '../tools/aave-tool';
 
 const google = createGoogleGenerativeAI();
@@ -24,6 +24,7 @@ You have access to the following tools:
 SWAP/BRIDGE TOOLS:
 - getSwapQuote: Get a quote for swapping or bridging tokens across chains.
 - getSwapRoutes: Get multiple route options for a swap.
+- getTokenBalances: Get all token balances across multiple chains for a wallet. Use when user asks "what do I have", "my balances", "show my tokens".
 
 AAVE LENDING TOOLS:
 - getAaveUserPosition: Check a user's Aave v3 lending position (collateral, debt, health factor). Read-only, no gas needed.
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
     tools: {
       getSwapQuote,
       getSwapRoutes,
+      getTokenBalances,
       getAaveUserPosition,
       getAaveSupplyTx,
       getAaveWithdrawTx,
