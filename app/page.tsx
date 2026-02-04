@@ -98,6 +98,51 @@ function SwapQuoteCard({
   );
 }
 
+function TokenBalancesCard({ output }: { output: any }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Failed to fetch balances: {output.error}
+      </div>
+    );
+  }
+
+  const { balances, tokenCount, note } = output;
+
+  if (tokenCount === 0) {
+    return (
+      <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm">
+        <p className="text-zinc-600 dark:text-zinc-400">No tokens found across chains.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-3">
+      <div className="flex justify-between items-center">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">Token Balances</p>
+        <p className="text-zinc-600 dark:text-zinc-400">{tokenCount} tokens</p>
+      </div>
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {balances.map((token: { symbol: string; chainName: string; amountFormatted: string }, idx: number) => (
+          <div key={idx} className="flex justify-between items-center py-1 border-b dark:border-zinc-700 last:border-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{token.symbol}</span>
+              <span className="text-xs text-zinc-500 dark:text-zinc-500">{token.chainName}</span>
+            </div>
+            <div className="text-right">
+              <p className="text-zinc-900 dark:text-zinc-100">{token.amountFormatted}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {note && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{note}</p>
+      )}
+    </div>
+  );
+}
+
 function AavePositionCard({ output }: { output: any }) {
   if (!output.success) {
     return (
@@ -313,6 +358,9 @@ export default function Home() {
                         txHash={currentTxHash}
                       />
                     );
+                  }
+                  if (invocation.toolName === 'getTokenBalances') {
+                    return <TokenBalancesCard key={idx} output={invocation.result} />;
                   }
                   if (invocation.toolName === 'getAaveUserPosition') {
                     return <AavePositionCard key={idx} output={invocation.result} />;
