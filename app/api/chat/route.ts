@@ -3,6 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { getSwapQuote, getSwapRoutes, getTokenBalances } from '../tools/lifi-tool';
 import { getAaveUserPosition, getAaveSupplyTx, getAaveWithdrawTx } from '../tools/aave-tool';
+import { resolveEnsName, lookupEnsName, getEnsTextRecord, getOmniStratPreferences, getEnsNameForAddress, fetchEnsPreferences } from '../tools/ens-tool';
 
 const google = createGoogleGenerativeAI();
 const openai = createOpenAI();
@@ -31,6 +32,12 @@ AAVE LENDING TOOLS:
 - getAaveSupplyTx: Build transactions to supply (deposit) an asset into Aave v3 to earn yield. Returns approve + supply transactions.
 - getAaveWithdrawTx: Build a transaction to withdraw an asset from Aave v3.
 
+ENS TOOLS:
+- resolveEnsName: Resolve an ENS name (like vitalik.eth) to an Ethereum address. ALWAYS use this when a user provides a .eth name instead of an address.
+- lookupEnsName: Look up the ENS name for an address (reverse lookup). Use to display human-readable names.
+- getEnsTextRecord: Get a text record from an ENS name (email, avatar, url, twitter, or custom keys).
+- getOmniStratPreferences: Get the user's DeFi preferences from their ENS profile (slippage, preferred chains, risk profile). Use this to personalize recommendations.
+
 MULTI-STEP STRATEGIES:
 You can combine tools for complex strategies. For example:
 - "Bridge USDC from Ethereum and deposit into Aave on Arbitrum" → use getSwapQuote first, then getAaveSupplyTx.
@@ -58,16 +65,53 @@ Be concise and helpful. If the user hasn't connected their wallet yet, remind th
 
 export const dynamic = 'force-dynamic';
 
+// Build personalized context from ENS preferences
+function buildPreferencesContext(ensName: string | null, prefs: { slippage: string | null; chains: string | null; risk: string | null; gasLimit: string | null } | null): string {
+  if (!ensName || !prefs) return '';
+
+  const parts: string[] = [];
+  parts.push(`\nThe user has ENS name: ${ensName}`);
+
+  const hasAnyPref = prefs.slippage || prefs.chains || prefs.risk || prefs.gasLimit;
+  if (hasAnyPref) {
+    parts.push('Their DeFi preferences from ENS profile:');
+    if (prefs.slippage) parts.push(`- Preferred slippage: ${prefs.slippage}%`);
+    if (prefs.chains) parts.push(`- Preferred chains: ${prefs.chains}`);
+    if (prefs.risk) parts.push(`- Risk profile: ${prefs.risk}`);
+    if (prefs.gasLimit) parts.push(`- Gas preference: ${prefs.gasLimit}`);
+    parts.push('Use these preferences to personalize your recommendations and default values.');
+  }
+
+  return parts.join('\n');
+}
+
 export async function POST(req: Request) {
   const { messages, walletAddress } = await req.json();
 
-  const walletContext = walletAddress
-    ? `\n\nThe user's connected wallet address is: ${walletAddress}. Use this address automatically when calling tools — do not ask the user for their address.`
-    : '\n\nThe user has not connected their wallet yet. Remind them to connect before executing swaps.';
+  let walletContext = '';
+  let ensContext = '';
+
+  if (walletAddress) {
+    walletContext = `\n\nThe user's connected wallet address is: ${walletAddress}. Use this address automatically when calling tools — do not ask the user for their address.`;
+
+    // Try to fetch ENS name and preferences for connected wallet
+    try {
+      const ensName = await getEnsNameForAddress(walletAddress);
+      if (ensName) {
+        const prefs = await fetchEnsPreferences(ensName);
+        ensContext = buildPreferencesContext(ensName, prefs);
+      }
+    } catch (error) {
+      // Silently ignore ENS lookup failures but log for debugging
+      console.error('Failed to fetch ENS name and preferences:', error);
+    }
+  } else {
+    walletContext = '\n\nThe user has not connected their wallet yet. Remind them to connect before executing swaps.';
+  }
 
   const result = await streamText({
     model: getModel(),
-    system: systemPrompt + walletContext,
+    system: systemPrompt + walletContext + ensContext,
     messages,
     tools: {
       getSwapQuote,
@@ -76,6 +120,10 @@ export async function POST(req: Request) {
       getAaveUserPosition,
       getAaveSupplyTx,
       getAaveWithdrawTx,
+      resolveEnsName,
+      lookupEnsName,
+      getEnsTextRecord,
+      getOmniStratPreferences,
     },
     maxSteps: 5,
   });
