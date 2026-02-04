@@ -143,7 +143,109 @@ function TokenBalancesCard({ output }: { output: any }) {
   );
 }
 
-function AavePositionCard({ output }: { output: any }) {
+interface EnsResultOutput {
+  success: boolean;
+  error?: string;
+  ensName?: string | null;
+  address?: string;
+  key?: string;
+  value?: string | null;
+  message?: string;
+  preferences?: Record<string, string | null>;
+  hasPreferences?: boolean;
+}
+
+function EnsResultCard({ output, toolName }: { output: EnsResultOutput; toolName: string }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        ENS lookup failed: {output.error}
+      </div>
+    );
+  }
+
+  // resolveEnsName result
+  if (toolName === 'resolveEnsName' && output.address) {
+    return (
+      <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">ENS Resolution</p>
+        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-zinc-700 dark:text-zinc-300">
+          <span>Name:</span>
+          <span className="font-mono">{output.ensName}</span>
+          <span>Address:</span>
+          <span className="font-mono text-xs break-all">{output.address}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // lookupEnsName result
+  if (toolName === 'lookupEnsName') {
+    return (
+      <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">ENS Lookup</p>
+        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-zinc-700 dark:text-zinc-300">
+          <span>Address:</span>
+          <span className="font-mono text-xs break-all">{output.address}</span>
+          <span>ENS Name:</span>
+          <span className="font-mono">{output.ensName || 'None found'}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // getEnsTextRecord result
+  if (toolName === 'getEnsTextRecord') {
+    return (
+      <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">ENS Text Record</p>
+        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-zinc-700 dark:text-zinc-300">
+          <span>Name:</span>
+          <span className="font-mono">{output.ensName}</span>
+          <span>Key:</span>
+          <span className="font-mono">{output.key}</span>
+          <span>Value:</span>
+          <span className="font-mono">{output.value || 'Not set'}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // getOmniStratPreferences result
+  if (toolName === 'getOmniStratPreferences' && output.preferences) {
+    const prefs = output.preferences;
+    return (
+      <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">DeFi Preferences</p>
+        <p className="text-xs text-zinc-500">{output.ensName}</p>
+        {output.hasPreferences ? (
+          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-zinc-700 dark:text-zinc-300">
+            <span>Slippage:</span>
+            <span className="font-mono">{prefs.slippage ? `${prefs.slippage}%` : 'Not set'}</span>
+            <span>Preferred Chains:</span>
+            <span className="font-mono">{prefs.chains || 'Not set'}</span>
+            <span>Risk Profile:</span>
+            <span className="font-mono">{prefs.risk || 'Not set'}</span>
+            <span>Gas Preference:</span>
+            <span className="font-mono">{prefs.gasLimit || 'Not set'}</span>
+          </div>
+        ) : (
+          <p className="text-zinc-500 dark:text-zinc-400">
+            No OmniStrat preferences set. You can add them via the{' '}
+            <a href="https://app.ens.domains" target="_blank" rel="noopener noreferrer" className="underline">
+              ENS app
+            </a>{' '}
+            using keys like <code className="text-xs">com.omnistrat.slippage</code>.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function AavePositionCard({ output }: { output: { success: boolean; error?: string; position?: { totalCollateralUSD: string; totalDebtUSD: string; availableBorrowsUSD: string; healthFactor: string; ltv: string } } }) {
   if (!output.success) {
     return (
       <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
@@ -153,6 +255,8 @@ function AavePositionCard({ output }: { output: any }) {
   }
 
   const { position } = output;
+
+  if (!position) return null;
 
   return (
     <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
@@ -376,6 +480,9 @@ export default function Home() {
                         txHash={currentTxHash}
                       />
                     );
+                  }
+                  if (invocation.toolName === 'resolveEnsName' || invocation.toolName === 'lookupEnsName' || invocation.toolName === 'getEnsTextRecord' || invocation.toolName === 'getOmniStratPreferences') {
+                    return <EnsResultCard key={idx} output={invocation.result} toolName={invocation.toolName} />;
                   }
                   return null;
                 })}
