@@ -173,16 +173,34 @@ export const getTokenBalances = tool({
         decimals: number;
       }[] = [];
 
-      // Check balances for each chain
+      // Check balances for each chain using multicall for efficiency
       for (const chainId of targetChains) {
         const config = chainsConfig[chainId];
         if (!config) continue;
 
-        const client = createPublicClient({ chain: config.chain, transport: http() });
+        const client = createPublicClient({
+          chain: config.chain,
+          transport: http(),
+          batch: { multicall: true },
+        });
 
-        // Get native balance
+        const tokensOnChain = TOKENS_TO_CHECK.filter((t) => t.chainId === chainId);
+
         try {
-          const nativeBalance = await client.getBalance({ address: walletAddress as `0x${string}` });
+          // Batch all calls: native balance + all ERC20 balances
+          const [nativeBalance, ...erc20Balances] = await Promise.all([
+            client.getBalance({ address: walletAddress as `0x${string}` }),
+            ...tokensOnChain.map((token) =>
+              client.readContract({
+                address: token.address as `0x${string}`,
+                abi: ERC20_BALANCE_ABI,
+                functionName: 'balanceOf',
+                args: [walletAddress as `0x${string}`],
+              }).catch(() => BigInt(0))
+            ),
+          ]);
+
+          // Add native balance if non-zero
           if (nativeBalance > BigInt(0)) {
             allBalances.push({
               symbol: config.nativeSymbol,
@@ -194,20 +212,10 @@ export const getTokenBalances = tool({
               decimals: 18,
             });
           }
-        } catch (e) {
-          // Skip if RPC fails
-        }
 
-        // Get ERC20 balances for this chain
-        const tokensOnChain = TOKENS_TO_CHECK.filter((t) => t.chainId === chainId);
-        for (const token of tokensOnChain) {
-          try {
-            const balance = await client.readContract({
-              address: token.address as `0x${string}`,
-              abi: ERC20_BALANCE_ABI,
-              functionName: 'balanceOf',
-              args: [walletAddress as `0x${string}`],
-            });
+          // Add ERC20 balances if non-zero
+          tokensOnChain.forEach((token, idx) => {
+            const balance = erc20Balances[idx];
             if (balance > BigInt(0)) {
               allBalances.push({
                 symbol: token.symbol,
@@ -219,9 +227,9 @@ export const getTokenBalances = tool({
                 decimals: token.decimals,
               });
             }
-          } catch (e) {
-            // Skip if contract call fails
-          }
+          });
+        } catch (e) {
+          // Skip chain if RPC fails entirely
         }
       }
 

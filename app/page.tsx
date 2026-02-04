@@ -124,8 +124,7 @@ function TokenBalancesCard({ output }: { output: any }) {
         <p className="text-zinc-600 dark:text-zinc-400">{tokenCount} tokens</p>
       </div>
       <div className="space-y-2 max-h-64 overflow-y-auto">
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        {balances.map((token: any, idx: number) => (
+        {balances.map((token: { symbol: string; chainName: string; amountFormatted: string }, idx: number) => (
           <div key={idx} className="flex justify-between items-center py-1 border-b dark:border-zinc-700 last:border-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-zinc-900 dark:text-zinc-100">{token.symbol}</span>

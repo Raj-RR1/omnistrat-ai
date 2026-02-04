@@ -7,7 +7,11 @@ import { mainnet, sepolia, arbitrum, polygon, optimism, base } from 'wagmi/chain
 
 const config = createConfig({
   chains: [mainnet, arbitrum, polygon, optimism, base, sepolia],
+  // Connectors are created on-demand in ConnectWallet to avoid auto-probing locked wallets
   connectors: [],
+  // Disable storage to prevent auto-reconnect on page load, which causes errors
+  // when MetaMask is locked ("wallet must have at least one account").
+  // Users must click "Connect Wallet" each session — acceptable UX tradeoff for hackathon.
   storage: createStorage({
     storage: {
       getItem: () => null,
@@ -28,10 +32,18 @@ const config = createConfig({
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
-  // Suppress MetaMask's auto-probe errors
+  // Workaround for MetaMask's auto-probe error on page load.
+  // MetaMask injects into the page and probes for accounts even when locked,
+  // throwing "wallet must have at least one account" (code 4001).
+  // This handler only suppresses that specific error — other rejections pass through.
+  // See: https://github.com/MetaMask/metamask-extension/issues/10085
   useEffect(() => {
     const handler = (event: PromiseRejectionEvent) => {
-      if (event.reason?.code === 4001 && event.reason?.message?.includes('account')) {
+      const isMetaMaskProbeError =
+        event.reason?.code === 4001 &&
+        typeof event.reason?.message === 'string' &&
+        event.reason.message.includes('account');
+      if (isMetaMaskProbeError) {
         event.preventDefault();
       }
     };
