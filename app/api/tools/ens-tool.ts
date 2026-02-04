@@ -137,7 +137,7 @@ export const getOmniStratPreferences = tool({
 
       const preferences: Record<string, string | null> = {};
       for (const { key, value } of results) {
-        const shortKey = key.replace('com.omnistrat.', '');
+        const shortKey = key.substring('com.omnistrat.'.length);
         preferences[shortKey] = value;
       }
 

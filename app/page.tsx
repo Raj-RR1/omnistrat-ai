@@ -481,7 +481,8 @@ export default function Home() {
                       />
                     );
                   }
-                  if (invocation.toolName === 'resolveEnsName' || invocation.toolName === 'lookupEnsName' || invocation.toolName === 'getEnsTextRecord' || invocation.toolName === 'getOmniStratPreferences') {
+                  const ensTools = ['resolveEnsName', 'lookupEnsName', 'getEnsTextRecord', 'getOmniStratPreferences'];
+                  if (ensTools.includes(invocation.toolName)) {
                     return <EnsResultCard key={idx} output={invocation.result} toolName={invocation.toolName} />;
                   }
                   return null;

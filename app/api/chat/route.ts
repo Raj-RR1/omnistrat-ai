@@ -101,8 +101,9 @@ export async function POST(req: Request) {
         const prefs = await fetchEnsPreferences(ensName);
         ensContext = buildPreferencesContext(ensName, prefs);
       }
-    } catch {
-      // Silently ignore ENS lookup failures
+    } catch (error) {
+      // Silently ignore ENS lookup failures but log for debugging
+      console.error('Failed to fetch ENS name and preferences:', error);
     }
   } else {
     walletContext = '\n\nThe user has not connected their wallet yet. Remind them to connect before executing swaps.';
