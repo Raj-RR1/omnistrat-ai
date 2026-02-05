@@ -153,7 +153,11 @@ export function YellowProvider({ children }: { children: React.ReactNode }) {
       params: { address: walletAddress },
     };
 
-    ws.send(JSON.stringify(challengeRequest));
+    try {
+      ws.send(JSON.stringify(challengeRequest));
+    } catch (err) {
+      throw new Error('Failed to send auth challenge');
+    }
 
     // Wait for challenge response and sign it
     return new Promise<void>((resolve, reject) => {
@@ -181,7 +185,14 @@ export function YellowProvider({ children }: { children: React.ReactNode }) {
                 signature,
               },
             };
-            ws.send(JSON.stringify(authRequest));
+            try {
+              ws.send(JSON.stringify(authRequest));
+            } catch (err) {
+              clearTimeout(timeout);
+              ws.removeEventListener('message', authHandler);
+              reject(new Error('Failed to send auth verification'));
+              return;
+            }
           } else if (response.id === 2) {
             clearTimeout(timeout);
             ws.removeEventListener('message', authHandler);

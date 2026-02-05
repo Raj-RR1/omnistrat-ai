@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { encodeFunctionData, maxUint256 } from 'viem';
+import { formatTokenAmount } from '../../lib/format';
 
 // Yellow Network ClearNode endpoints
 const CLEARNODE_ENDPOINTS = {
@@ -129,7 +130,7 @@ export const getYellowSessionStatus = tool({
     }
 
     const formattedBalance = sessionBalance && tokenDecimals
-      ? formatAmount(sessionBalance, tokenDecimals)
+      ? formatTokenAmount(sessionBalance, tokenDecimals)
       : sessionBalance || '0';
 
     return {
@@ -150,16 +151,6 @@ export const getYellowSessionStatus = tool({
     };
   },
 });
-
-// Helper to format token amounts
-function formatAmount(amount: string, decimals: number): string {
-  const value = BigInt(amount);
-  const divisor = BigInt(10 ** decimals);
-  const integerPart = value / divisor;
-  const fractionalPart = value % divisor;
-  const fractionalStr = fractionalPart.toString().padStart(decimals, '0').slice(0, 6);
-  return `${integerPart}.${fractionalStr}`.replace(/\.?0+$/, '') || '0';
-}
 
 export const buildYellowDepositTx = tool({
   description:
@@ -204,7 +195,7 @@ export const buildYellowDepositTx = tool({
         args: [token as `0x${string}`, BigInt(amount)],
       });
 
-      const formattedAmount = formatAmount(amount, 6); // Assuming USDC with 6 decimals
+      const formattedAmount = formatTokenAmount(amount, 6); // Assuming USDC with 6 decimals
 
       return {
         success: true,
@@ -285,7 +276,7 @@ export const buildYellowWithdrawTx = tool({
         args: [token as `0x${string}`, BigInt(amount)],
       });
 
-      const formattedAmount = formatAmount(amount, 6); // Assuming USDC with 6 decimals
+      const formattedAmount = formatTokenAmount(amount, 6); // Assuming USDC with 6 decimals
 
       return {
         success: true,

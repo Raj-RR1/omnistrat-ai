@@ -1,6 +1,7 @@
 'use client';
 
 import { useYellow } from '../contexts/YellowContext';
+import { formatTokenAmount } from '../lib/format';
 
 // Status indicator colors
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -25,17 +26,7 @@ export function YellowSessionCard() {
   const colors = STATUS_COLORS[session.status] || STATUS_COLORS.disconnected;
   const statusLabel = STATUS_LABELS[session.status] || 'Unknown';
 
-  // Format balance for display
-  const formatBalance = (raw: string, decimals: number): string => {
-    const value = BigInt(raw || '0');
-    const divisor = BigInt(10 ** decimals);
-    const integerPart = value / divisor;
-    const fractionalPart = value % divisor;
-    const fractionalStr = fractionalPart.toString().padStart(decimals, '0').slice(0, 2);
-    return `${integerPart}.${fractionalStr}`;
-  };
-
-  const formattedBalance = formatBalance(session.balance, session.tokenDecimals);
+  const formattedBalance = formatTokenAmount(session.balance, session.tokenDecimals, 6);
 
   return (
     <div className="border dark:border-zinc-700 rounded-lg p-3 bg-white dark:bg-zinc-900">
