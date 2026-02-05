@@ -21,7 +21,7 @@ Built for [Hack Money 2026](https://ethglobal.com/events/hackmoney2026) by ETHGl
 |----------|-------------|------|
 | [LI.FI](https://li.fi) | Cross-chain swap & bridge aggregation | `lifi-tool.ts` |
 | [Aave v3](https://aave.com) | Lending — supply & withdraw | `aave-tool.ts` |
-| [Circle Arc / Gateway](https://arc.network) | Unified USDC balance across 30+ chains | `arc-tool.ts` |
+| [Aave v3](https://aave.com) | Lending — Supply & Withdraw | `aave-tool.ts` |
 | [Circle CCTP v2](https://developers.circle.com/stablecoins/cctp-getting-started) | Native USDC burn-and-mint bridging | `arc-tool.ts` |
 | [ENS](https://ens.domains) | Name resolution & DeFi preferences | `ens-tool.ts` |
 | [Yellow Network](https://yellow.org) | State channels for instant operations | `yellow-tool.ts` |
