@@ -86,7 +86,7 @@ GOOGLE_GENERATIVE_AI_API_KEY=  # required if using gemini
 ```
 
 ### Run
-
+GOOGLE_GENERATIVE_AI_API_KEY=xxxxxxxxxxxx  # required if using gemini
 ```bash
 npm run dev
 ```
