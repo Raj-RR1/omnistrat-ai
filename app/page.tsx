@@ -4,6 +4,7 @@ import { useChat } from 'ai/react';
 import { useEffect, useState } from 'react';
 import { useConnection, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectWallet } from './components/ConnectWallet';
+import { YellowSessionCard } from './components/YellowSessionCard';
 
 // TODO: Fetch token decimals dynamically or from a centralized config
 function formatAmount(amount: string, symbol: string): string {
@@ -245,6 +246,202 @@ function EnsResultCard({ output, toolName }: { output: EnsResultOutput; toolName
   return null;
 }
 
+// Yellow Network result types
+interface YellowInfoOutput {
+  success: boolean;
+  error?: string;
+  name?: string;
+  description?: string;
+  benefits?: string[];
+  howItWorks?: string[];
+  supportedChains?: { chainId: number; name: string }[];
+  useCases?: string[];
+}
+
+interface YellowDepositOutput {
+  success: boolean;
+  error?: string;
+  chainName?: string;
+  depositAmount?: { raw: string; formatted: string; symbol: string };
+  transactions?: { step: number; name: string; description: string; to: string; data: string; value: string }[];
+  nextStep?: string;
+}
+
+interface YellowWithdrawOutput {
+  success: boolean;
+  error?: string;
+  chainName?: string;
+  withdrawAmount?: { raw: string; formatted: string; symbol: string };
+  transaction?: { name: string; description: string; to: string; data: string; value: string };
+  note?: string;
+}
+
+function YellowResultCard({
+  output,
+  toolName,
+  onExecute,
+  txStatus,
+  txHash,
+}: {
+  output: YellowInfoOutput | YellowDepositOutput | YellowWithdrawOutput;
+  toolName: string;
+  onExecute?: (tx: any) => void;
+  txStatus?: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
+  txHash?: string;
+}) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Yellow Network error: {output.error}
+      </div>
+    );
+  }
+
+  // getYellowNetworkInfo result
+  if (toolName === 'getYellowNetworkInfo') {
+    const info = output as YellowInfoOutput;
+    return (
+      <div className="my-2 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">⚡</span>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-50">{info.name}</p>
+        </div>
+        <p className="text-zinc-600 dark:text-zinc-400">{info.description}</p>
+        {info.benefits && (
+          <div>
+            <p className="font-medium text-zinc-700 dark:text-zinc-300 mb-1">Benefits:</p>
+            <ul className="list-disc list-inside text-zinc-600 dark:text-zinc-400 space-y-0.5">
+              {info.benefits.map((b, i) => <li key={i}>{b}</li>)}
+            </ul>
+          </div>
+        )}
+        {info.howItWorks && (
+          <div>
+            <p className="font-medium text-zinc-700 dark:text-zinc-300 mb-1">How it works:</p>
+            <ol className="list-decimal list-inside text-zinc-600 dark:text-zinc-400 space-y-0.5">
+              {info.howItWorks.map((step, i) => <li key={i}>{step.replace(/^\d+\.\s*/, '')}</li>)}
+            </ol>
+          </div>
+        )}
+        {info.supportedChains && (
+          <div className="flex gap-2 flex-wrap">
+            {info.supportedChains.map((c) => (
+              <span key={c.chainId} className="px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 rounded">
+                {c.name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // buildYellowDepositTx result
+  if (toolName === 'buildYellowDepositTx') {
+    const deposit = output as YellowDepositOutput;
+    const [currentStep, setCurrentStep] = useState(0);
+    const transactions = deposit.transactions || [];
+
+    return (
+      <div className="my-2 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">⚡</span>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-50">Yellow Network Deposit</p>
+        </div>
+        {deposit.depositAmount && (
+          <p className="text-zinc-700 dark:text-zinc-300">
+            Deposit <span className="font-semibold">{deposit.depositAmount.formatted} {deposit.depositAmount.symbol}</span> on {deposit.chainName}
+          </p>
+        )}
+        {transactions.map((tx, idx) => (
+          <div key={idx} className="space-y-1">
+            <p className="text-zinc-600 dark:text-zinc-400">
+              Step {tx.step}: {tx.description}
+            </p>
+            {idx === currentStep && onExecute && (
+              <>
+                {txStatus === 'success' && txHash ? (
+                  <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                    Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                    {idx < transactions.length - 1 && (
+                      <button className="ml-2 underline" onClick={() => setCurrentStep(idx + 1)}>
+                        Next step
+                      </button>
+                    )}
+                  </div>
+                ) : txStatus === 'error' ? (
+                  <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+                    Transaction failed. Please try again.
+                  </div>
+                ) : (
+                  <button
+                    className="w-full px-4 py-2 font-semibold text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                    disabled={txStatus !== 'idle'}
+                    onClick={() => onExecute({ to: tx.to, data: tx.data, value: tx.value })}
+                  >
+                    {txStatus === 'pending' ? 'Confirm in wallet...' : txStatus === 'confirming' ? 'Confirming...' : tx.name}
+                  </button>
+                )}
+              </>
+            )}
+            {idx < currentStep && <p className="text-xs text-green-600 dark:text-green-400">Completed</p>}
+            {idx > currentStep && <p className="text-xs text-zinc-400">Waiting...</p>}
+          </div>
+        ))}
+        {deposit.nextStep && (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">{deposit.nextStep}</p>
+        )}
+      </div>
+    );
+  }
+
+  // buildYellowWithdrawTx result
+  if (toolName === 'buildYellowWithdrawTx') {
+    const withdraw = output as YellowWithdrawOutput;
+    const tx = withdraw.transaction;
+
+    return (
+      <div className="my-2 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">⚡</span>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-50">Yellow Network Withdraw</p>
+        </div>
+        {withdraw.withdrawAmount && (
+          <p className="text-zinc-700 dark:text-zinc-300">
+            Withdraw <span className="font-semibold">{withdraw.withdrawAmount.formatted} {withdraw.withdrawAmount.symbol}</span> from {withdraw.chainName}
+          </p>
+        )}
+        {tx && onExecute && (
+          <>
+            {txStatus === 'success' && txHash ? (
+              <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+              </div>
+            ) : txStatus === 'error' ? (
+              <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+                Transaction failed. Please try again.
+              </div>
+            ) : (
+              <button
+                className="w-full px-4 py-2 font-semibold text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                disabled={txStatus !== 'idle'}
+                onClick={() => onExecute({ to: tx.to, data: tx.data, value: tx.value })}
+              >
+                {txStatus === 'pending' ? 'Confirm in wallet...' : txStatus === 'confirming' ? 'Confirming...' : tx.name}
+              </button>
+            )}
+          </>
+        )}
+        {withdraw.note && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">{withdraw.note}</p>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function AavePositionCard({ output }: { output: { success: boolean; error?: string; position?: { totalCollateralUSD: string; totalDebtUSD: string; availableBorrowsUSD: string; healthFactor: string; ltv: string } } }) {
   if (!output.success) {
     return (
@@ -440,7 +637,8 @@ export default function Home() {
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">OmniStrat AI</h1>
         <ConnectWallet />
       </header>
-      <main className="flex-1 p-4 overflow-y-auto">
+      <div className="flex flex-1 overflow-hidden">
+        <main className="flex-1 p-4 overflow-y-auto">
         <div className="space-y-4">
           {messages.map((m) => (
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -485,6 +683,19 @@ export default function Home() {
                   if (ensTools.includes(invocation.toolName)) {
                     return <EnsResultCard key={idx} output={invocation.result} toolName={invocation.toolName} />;
                   }
+                  const yellowTools = ['getYellowNetworkInfo', 'buildYellowDepositTx', 'buildYellowWithdrawTx'];
+                  if (yellowTools.includes(invocation.toolName)) {
+                    return (
+                      <YellowResultCard
+                        key={idx}
+                        output={invocation.result}
+                        toolName={invocation.toolName}
+                        onExecute={handleExecuteSwap}
+                        txStatus={currentTxStatus}
+                        txHash={currentTxHash}
+                      />
+                    );
+                  }
                   return null;
                 })}
               </div>
@@ -492,6 +703,11 @@ export default function Home() {
           ))}
         </div>
       </main>
+        {/* Right Sidebar - Yellow Network Session */}
+        <aside className="hidden md:block w-72 p-4 border-l dark:border-zinc-800 overflow-y-auto">
+          <YellowSessionCard />
+        </aside>
+      </div>
       <footer className="p-4 border-t dark:border-zinc-800">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
