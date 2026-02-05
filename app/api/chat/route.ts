@@ -5,6 +5,7 @@ import { getSwapQuote, getSwapRoutes, getTokenBalances } from '../tools/lifi-too
 import { getAaveUserPosition, getAaveSupplyTx, getAaveWithdrawTx } from '../tools/aave-tool';
 import { resolveEnsName, lookupEnsName, getEnsTextRecord, getOmniStratPreferences, getEnsNameForAddress, fetchEnsPreferences } from '../tools/ens-tool';
 import { getYellowNetworkInfo, getYellowSessionStatus, buildYellowDepositTx, buildYellowWithdrawTx } from '../tools/yellow-tool';
+import { getArcInfo, getArcSupportedChains, getGatewayBalance, buildGatewayDepositTx, buildUSDCBridgeTx } from '../tools/arc-tool';
 
 const google = createGoogleGenerativeAI();
 const openai = createOpenAI();
@@ -45,6 +46,13 @@ YELLOW NETWORK TOOLS (State Channels for Instant Operations):
 - buildYellowDepositTx: Build transactions to deposit funds into Yellow Network. Use when user wants to "open a Yellow session" or "enable instant transactions". Supported chains: Ethereum, Arbitrum, Base.
 - buildYellowWithdrawTx: Build a transaction to withdraw from Yellow Network. Use when user wants to "close Yellow session" or "withdraw from Yellow".
 
+ARC / USDC TOOLS (Chain-Abstracted USDC via Circle):
+- getArcInfo: Get information about Circle Arc network, Gateway unified balance, and CCTP native bridging. Use when user asks about Arc, chain-abstracted USDC, or Circle.
+- getArcSupportedChains: List all chains supported by Arc/Gateway/CCTP. Use when user asks "what chains does Arc support" or "where can I bridge USDC".
+- getGatewayBalance: Query the user's unified USDC balance across all supported chains via Circle Gateway. Use when user asks "what's my total USDC", "unified balance", or "USDC across chains". Pass the user's wallet address as depositorAddress.
+- buildGatewayDepositTx: Build transactions to deposit USDC into Circle Gateway for a unified cross-chain balance. Use when user wants to "deposit into Gateway", "create unified balance", or "fund Gateway". Testnet chains: Sepolia (11155111), Base Sepolia (84532), Arc Testnet (5042002).
+- buildUSDCBridgeTx: Build transactions to bridge USDC via CCTP v2 (native burn-and-mint). Use when user wants to "bridge USDC", "send USDC to another chain". Prefer this over LI.FI when specifically bridging USDC — it's faster and uses native USDC (no wrapped tokens).
+
 MULTI-STEP STRATEGIES:
 You can combine tools for complex strategies. For example:
 - "Bridge USDC from Ethereum and deposit into Aave on Arbitrum" → use getSwapQuote first, then getAaveSupplyTx.
@@ -55,7 +63,7 @@ RULES:
 2. If a tool returns an error, explain what went wrong and suggest how to fix it.
 3. Ask for any missing information before calling a tool.
 
-Common chain IDs: Ethereum=1, Arbitrum=42161, Polygon=137, Optimism=10, Base=8453.
+Common chain IDs: Ethereum=1, Arbitrum=42161, Polygon=137, Optimism=10, Base=8453, Sepolia=11155111, Base Sepolia=84532, Arc Testnet=5042002.
 
 Common token addresses:
 - Native ETH (all EVM chains): 0x0000000000000000000000000000000000000000
@@ -65,6 +73,9 @@ Common token addresses:
 - USDC on Base: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 - USDT on Ethereum: 0xdAC17F958D2ee523a2206206994597C13D831ec7
 - WETH on Arbitrum: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1
+- USDC on Sepolia: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+- USDC on Base Sepolia: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+- USDC on Arc Testnet: 0x3600000000000000000000000000000000000000 (native)
 
 Token amounts must be in the smallest unit (e.g. 1 USDC = 1000000, 0.01 ETH = 10000000000000000).
 
@@ -135,6 +146,11 @@ export async function POST(req: Request) {
       getYellowSessionStatus,
       buildYellowDepositTx,
       buildYellowWithdrawTx,
+      getArcInfo,
+      getArcSupportedChains,
+      getGatewayBalance,
+      buildGatewayDepositTx,
+      buildUSDCBridgeTx,
     },
     maxSteps: 5,
   });
