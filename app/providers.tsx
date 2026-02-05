@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http, createStorage } from 'wagmi';
 import { mainnet, sepolia, arbitrum, polygon, optimism, base } from 'wagmi/chains';
+import { YellowProvider } from './contexts/YellowContext';
 
 const config = createConfig({
   chains: [mainnet, arbitrum, polygon, optimism, base, sepolia],
@@ -54,7 +55,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <YellowProvider>
+          {children}
+        </YellowProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

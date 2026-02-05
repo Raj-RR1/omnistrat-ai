@@ -4,6 +4,7 @@ import { streamText } from 'ai';
 import { getSwapQuote, getSwapRoutes, getTokenBalances } from '../tools/lifi-tool';
 import { getAaveUserPosition, getAaveSupplyTx, getAaveWithdrawTx } from '../tools/aave-tool';
 import { resolveEnsName, lookupEnsName, getEnsTextRecord, getOmniStratPreferences, getEnsNameForAddress, fetchEnsPreferences } from '../tools/ens-tool';
+import { getYellowNetworkInfo, getYellowSessionStatus, buildYellowDepositTx, buildYellowWithdrawTx } from '../tools/yellow-tool';
 
 const google = createGoogleGenerativeAI();
 const openai = createOpenAI();
@@ -37,6 +38,12 @@ ENS TOOLS:
 - lookupEnsName: Look up the ENS name for an address (reverse lookup). Use to display human-readable names.
 - getEnsTextRecord: Get a text record from an ENS name (email, avatar, url, twitter, or custom keys).
 - getOmniStratPreferences: Get the user's DeFi preferences from their ENS profile (slippage, preferred chains, risk profile). Use this to personalize recommendations.
+
+YELLOW NETWORK TOOLS (State Channels for Instant Operations):
+- getYellowNetworkInfo: Get information about Yellow Network and state channels. Use when user asks about instant transactions, gas-free operations, or Yellow Network.
+- getYellowSessionStatus: Check if a Yellow session is active and get balance. Use when user asks "what's my Yellow balance" or "is my session active".
+- buildYellowDepositTx: Build transactions to deposit funds into Yellow Network. Use when user wants to "open a Yellow session" or "enable instant transactions". Supported chains: Ethereum, Arbitrum, Base.
+- buildYellowWithdrawTx: Build a transaction to withdraw from Yellow Network. Use when user wants to "close Yellow session" or "withdraw from Yellow".
 
 MULTI-STEP STRATEGIES:
 You can combine tools for complex strategies. For example:
@@ -124,6 +131,10 @@ export async function POST(req: Request) {
       lookupEnsName,
       getEnsTextRecord,
       getOmniStratPreferences,
+      getYellowNetworkInfo,
+      getYellowSessionStatus,
+      buildYellowDepositTx,
+      buildYellowWithdrawTx,
     },
     maxSteps: 5,
   });
