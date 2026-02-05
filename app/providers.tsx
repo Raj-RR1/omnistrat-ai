@@ -3,11 +3,25 @@
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http, createStorage } from 'wagmi';
-import { mainnet, sepolia, arbitrum, polygon, optimism, base } from 'wagmi/chains';
+import { mainnet, sepolia, arbitrum, polygon, optimism, base, baseSepolia } from 'wagmi/chains';
+import { defineChain } from 'viem';
+
+const arcTestnet = defineChain({
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.testnet.arc.network'] },
+  },
+  blockExplorers: {
+    default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+});
 import { YellowProvider } from './contexts/YellowContext';
 
 const config = createConfig({
-  chains: [mainnet, arbitrum, polygon, optimism, base, sepolia],
+  chains: [mainnet, arbitrum, polygon, optimism, base, sepolia, baseSepolia, arcTestnet],
   // Connectors are created on-demand in ConnectWallet to avoid auto-probing locked wallets
   connectors: [],
   // Disable storage to prevent auto-reconnect on page load, which causes errors
@@ -27,6 +41,8 @@ const config = createConfig({
     [optimism.id]: http(),
     [base.id]: http(),
     [sepolia.id]: http(),
+    [baseSepolia.id]: http(),
+    [arcTestnet.id]: http(),
   },
 });
 

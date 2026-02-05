@@ -20,6 +20,8 @@ const EXPLORER_URLS: Record<number, string> = {
   10: 'https://optimistic.etherscan.io',
   8453: 'https://basescan.org',
   11155111: 'https://sepolia.etherscan.io',
+  84532: 'https://sepolia.basescan.org',
+  5042002: 'https://testnet.arcscan.app',
 };
 
 function SwapQuoteCard({
@@ -280,12 +282,14 @@ function YellowResultCard({
   output,
   toolName,
   onExecute,
+  onReset,
   txStatus,
   txHash,
 }: {
   output: YellowInfoOutput | YellowDepositOutput | YellowWithdrawOutput;
   toolName: string;
   onExecute?: (tx: any) => void;
+  onReset?: () => void;
   txStatus?: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
   txHash?: string;
 }) {
@@ -364,7 +368,7 @@ function YellowResultCard({
                   <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
                     Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
                     {idx < transactions.length - 1 && (
-                      <button className="ml-2 underline" onClick={() => setCurrentStep(idx + 1)}>
+                      <button className="ml-2 underline" onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}>
                         Next step
                       </button>
                     )}
@@ -372,6 +376,7 @@ function YellowResultCard({
                 ) : txStatus === 'error' ? (
                   <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
                     Transaction failed. Please try again.
+                    <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
                   </div>
                 ) : (
                   <button
@@ -442,6 +447,272 @@ function YellowResultCard({
   return null;
 }
 
+// Arc / Circle result types
+interface ArcInfoOutput {
+  success: boolean;
+  error?: string;
+  name?: string;
+  description?: string;
+  features?: string[];
+  gateway?: { description: string; supportedChains: number };
+  cctp?: { description: string };
+  supportedChains?: { chainId: number; name: string; domain: number }[];
+  links?: { docs: string; gateway: string; faucet: string; explorer: string };
+}
+
+interface GatewayBalanceOutput {
+  success: boolean;
+  error?: string;
+  depositor?: string;
+  totalBalance?: string;
+  totalBalanceUSD?: string;
+  balances?: { chainName: string; chainId: number; balance: string; balanceFormatted: string }[];
+  chainCount?: number;
+  note?: string;
+}
+
+interface ArcTxOutput {
+  success: boolean;
+  error?: string;
+  type?: string;
+  chainId?: number;
+  chainName?: string;
+  sourceChainId?: number;
+  sourceChainName?: string;
+  destinationChainName?: string;
+  depositAmount?: { raw: string; formatted: string; symbol: string };
+  bridgeAmount?: { raw: string; formatted: string; symbol: string };
+  transactions?: { step: number; name: string; description: string; to: string; data: string; value: string }[];
+  nextStep?: string;
+  note?: string;
+}
+
+interface ArcSupportedChainsOutput {
+  success: boolean;
+  error?: string;
+  network?: string;
+  chains?: { chainId: number; name: string; domain: number; usdcAddress: string; hasCCTP: boolean; hasGateway: boolean }[];
+  totalChains?: number;
+  note?: string;
+}
+
+function ArcInfoCard({ output }: { output: ArcInfoOutput }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Arc info error: {output.error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">&#9711;</span>
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">{output.name}</p>
+      </div>
+      <p className="text-zinc-600 dark:text-zinc-400">{output.description}</p>
+      {output.features && (
+        <div>
+          <p className="font-medium text-zinc-700 dark:text-zinc-300 mb-1">Key Features:</p>
+          <ul className="list-disc list-inside text-zinc-600 dark:text-zinc-400 space-y-0.5">
+            {output.features.map((f, i) => <li key={i}>{f}</li>)}
+          </ul>
+        </div>
+      )}
+      {output.gateway && (
+        <div className="p-2 rounded bg-blue-100 dark:bg-blue-900/40 text-zinc-700 dark:text-zinc-300">
+          <p className="font-medium mb-1">Gateway (Unified Balance)</p>
+          <p className="text-xs">{output.gateway.description}</p>
+        </div>
+      )}
+      {output.cctp && (
+        <div className="p-2 rounded bg-blue-100 dark:bg-blue-900/40 text-zinc-700 dark:text-zinc-300">
+          <p className="font-medium mb-1">CCTP v2 (Native Bridging)</p>
+          <p className="text-xs">{output.cctp.description}</p>
+        </div>
+      )}
+      {output.supportedChains && (
+        <div className="flex gap-2 flex-wrap">
+          {output.supportedChains.map((c) => (
+            <span key={c.chainId} className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded">
+              {c.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {output.links && (
+        <div className="flex gap-3 text-xs">
+          <a href={output.links.docs} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline">Docs</a>
+          <a href={output.links.gateway} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline">Gateway</a>
+          <a href={output.links.faucet} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline">Faucet</a>
+          <a href={output.links.explorer} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline">Explorer</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ArcSupportedChainsCard({ output }: { output: ArcSupportedChainsOutput }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Failed to get supported chains: {output.error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm space-y-3">
+      <div className="flex justify-between items-center">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">Arc Supported Chains</p>
+        <span className="text-xs text-zinc-500">{output.network} &middot; {output.totalChains} chains</span>
+      </div>
+      <div className="space-y-2">
+        {output.chains?.map((chain) => (
+          <div key={chain.chainId} className="flex justify-between items-center py-1 border-b dark:border-zinc-700 last:border-0">
+            <div>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{chain.name}</span>
+              <span className="text-xs text-zinc-500 ml-2">ID: {chain.chainId}</span>
+            </div>
+            <div className="flex gap-1">
+              {chain.hasGateway && (
+                <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">Gateway</span>
+              )}
+              {chain.hasCCTP && (
+                <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded">CCTP</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {output.note && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{output.note}</p>
+      )}
+    </div>
+  );
+}
+
+function GatewayBalanceCard({ output }: { output: GatewayBalanceOutput }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Gateway balance error: {output.error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm space-y-3">
+      <div className="flex justify-between items-center">
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">Unified USDC Balance</p>
+        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{output.totalBalanceUSD}</span>
+      </div>
+      <p className="text-xs text-zinc-500">
+        {output.totalBalance} USDC across {output.chainCount} chains via Circle Gateway
+      </p>
+      {output.balances && output.balances.length > 0 && (
+        <div className="space-y-1">
+          {output.balances.map((b, i) => (
+            <div key={i} className="flex justify-between items-center py-1 border-b dark:border-zinc-700 last:border-0">
+              <span className="text-zinc-700 dark:text-zinc-300">{b.chainName}</span>
+              <span className="font-mono text-zinc-900 dark:text-zinc-100">{b.balanceFormatted} USDC</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {output.note && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{output.note}</p>
+      )}
+    </div>
+  );
+}
+
+function ArcTransactionCard({
+  output,
+  onExecute,
+  onReset,
+  txStatus,
+  txHash,
+}: {
+  output: ArcTxOutput;
+  onExecute: (tx: any) => void;
+  onReset?: () => void;
+  txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
+  txHash?: string;
+}) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Arc transaction error: {output.error}
+      </div>
+    );
+  }
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const transactions = output.transactions || [];
+  const amount = output.depositAmount || output.bridgeAmount;
+  const isDeposit = output.type === 'gateway_deposit';
+  const title = isDeposit ? 'Gateway Deposit' : 'USDC Bridge (CCTP)';
+  const subtitle = isDeposit
+    ? `Deposit ${amount?.formatted} ${amount?.symbol} on ${output.chainName}`
+    : `Bridge ${amount?.formatted} ${amount?.symbol} from ${output.sourceChainName} to ${output.destinationChainName}`;
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">&#9711;</span>
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">{title}</p>
+      </div>
+      {amount && (
+        <p className="text-zinc-700 dark:text-zinc-300">{subtitle}</p>
+      )}
+      {transactions.map((tx, idx) => (
+        <div key={idx} className="space-y-1">
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Step {tx.step}: {tx.description}
+          </p>
+          {idx === currentStep && (
+            <>
+              {txStatus === 'success' && txHash ? (
+                <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                  Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                  {idx < transactions.length - 1 && (
+                    <button className="ml-2 underline" onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}>
+                      Next step
+                    </button>
+                  )}
+                </div>
+              ) : txStatus === 'error' ? (
+                <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+                  Transaction failed. Please try again.
+                  <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
+                </div>
+              ) : (
+                <button
+                  className="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  disabled={txStatus !== 'idle'}
+                  onClick={() => onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId: output.chainId || output.sourceChainId })}
+                >
+                  {txStatus === 'pending' ? 'Confirm in wallet...' : txStatus === 'confirming' ? 'Confirming...' : txStatus === 'switching' ? 'Switching chain...' : tx.name}
+                </button>
+              )}
+            </>
+          )}
+          {idx < currentStep && <p className="text-xs text-green-600 dark:text-green-400">Completed</p>}
+          {idx > currentStep && <p className="text-xs text-zinc-400">Waiting...</p>}
+        </div>
+      ))}
+      {output.nextStep && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">{output.nextStep}</p>
+      )}
+      {output.note && (
+        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">{output.note}</p>
+      )}
+    </div>
+  );
+}
+
 function AavePositionCard({ output }: { output: { success: boolean; error?: string; position?: { totalCollateralUSD: string; totalDebtUSD: string; availableBorrowsUSD: string; healthFactor: string; ltv: string } } }) {
   if (!output.success) {
     return (
@@ -478,12 +749,14 @@ function AaveTransactionCard({
   output,
   args,
   onExecute,
+  onReset,
   txStatus,
   txHash,
 }: {
   output: any;
   args?: any;
   onExecute: (tx: any) => void;
+  onReset?: () => void;
   txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
   txHash?: string;
 }) {
@@ -546,7 +819,7 @@ function AaveTransactionCard({
                   {idx < transactions.length - 1 && (
                     <button
                       className="ml-2 underline text-green-700 dark:text-green-300"
-                      onClick={() => setCurrentStep(idx + 1)}
+                      onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}
                     >
                       Next step
                     </button>
@@ -555,6 +828,7 @@ function AaveTransactionCard({
               ) : txStatus === 'error' ? (
                 <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
                   Transaction failed. Please try again.
+                  <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
                 </div>
               ) : (
                 <button
@@ -628,6 +902,11 @@ export default function Home() {
     }
   }
 
+  function handleResetTx() {
+    setTxState('idle');
+    resetTx();
+  }
+
   const currentTxStatus = txState;
   const currentTxHash = txHash;
 
@@ -674,6 +953,7 @@ export default function Home() {
                         output={invocation.result}
                         args={invocation.args}
                         onExecute={handleExecuteSwap}
+                        onReset={handleResetTx}
                         txStatus={currentTxStatus}
                         txHash={currentTxHash}
                       />
@@ -691,6 +971,28 @@ export default function Home() {
                         output={invocation.result}
                         toolName={invocation.toolName}
                         onExecute={handleExecuteSwap}
+                        onReset={handleResetTx}
+                        txStatus={currentTxStatus}
+                        txHash={currentTxHash}
+                      />
+                    );
+                  }
+                  if (invocation.toolName === 'getArcInfo') {
+                    return <ArcInfoCard key={idx} output={invocation.result} />;
+                  }
+                  if (invocation.toolName === 'getArcSupportedChains') {
+                    return <ArcSupportedChainsCard key={idx} output={invocation.result} />;
+                  }
+                  if (invocation.toolName === 'getGatewayBalance') {
+                    return <GatewayBalanceCard key={idx} output={invocation.result} />;
+                  }
+                  if (invocation.toolName === 'buildGatewayDepositTx' || invocation.toolName === 'buildUSDCBridgeTx') {
+                    return (
+                      <ArcTransactionCard
+                        key={idx}
+                        output={invocation.result}
+                        onExecute={handleExecuteSwap}
+                        onReset={handleResetTx}
                         txStatus={currentTxStatus}
                         txHash={currentTxHash}
                       />
