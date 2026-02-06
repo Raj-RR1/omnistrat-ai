@@ -1005,7 +1005,7 @@ function AaveTransactionCard({
 
 export default function Home() {
   const { address, chain } = useConnection();
-  const { messages, input, handleInputChange, handleSubmit } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     body: { walletAddress: address },
   });
   const { mutateAsync: sendTransaction, data: txHash, status: sendStatus, reset: resetTx } = useSendTransaction();
@@ -1013,6 +1013,7 @@ export default function Home() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   const [txState, setTxState] = useState<'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error'>('idle');
+  const [showYellowPanel, setShowYellowPanel] = useState(false);
 
   useEffect(() => {
     if (isConfirmed) setTxState('success');
@@ -1058,7 +1059,16 @@ export default function Home() {
     <div className="flex flex-col h-screen bg-zinc-50 dark:bg-black">
       <header className="flex items-center justify-between p-4 border-b dark:border-zinc-800">
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">OmniStrat AI</h1>
-        <ConnectWallet />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowYellowPanel((prev) => !prev)}
+            className="px-3 py-1.5 text-sm font-medium border rounded-full dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            {showYellowPanel ? 'Hide Yellow' : 'Show Yellow'}
+          </button>
+          <ConnectWallet />
+        </div>
       </header>
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 p-4 overflow-y-auto">
@@ -1162,20 +1172,38 @@ export default function Home() {
               </div>
             </div>
           ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="px-4 py-2 rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-500 text-sm flex items-center gap-2">
+                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
         </div>
       </main>
         {/* Right Sidebar - Yellow Network Session */}
-        <aside className="hidden md:block w-72 p-4 border-l dark:border-zinc-800 overflow-y-auto">
-          <YellowSessionCard />
-        </aside>
+        {showYellowPanel && (
+          <aside className="hidden md:block w-72 p-4 border-l dark:border-zinc-800 overflow-y-auto">
+            <YellowSessionCard />
+          </aside>
+        )}
       </div>
       <footer className="p-4 border-t dark:border-zinc-800">
         <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
+          <textarea
             value={input}
             onChange={handleInputChange}
-            placeholder="Ask me anything about DeFi..."
-            className="flex-1 px-4 py-2 border rounded-full dark:bg-zinc-800 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
+            rows={1}
+            placeholder="Ask: swap tokens, bridge USDC, check Aave, open Yellow session..."
+            className="flex-1 px-4 py-2 border rounded-2xl dark:bg-zinc-800 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
           <button
             type="submit"
