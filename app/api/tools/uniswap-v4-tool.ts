@@ -377,7 +377,7 @@ export const buildUniswapV4RemoveLiquidityTx = tool({
     tickLower: z.number().describe('Lower tick of the position'),
     tickUpper: z.number().describe('Upper tick of the position'),
   }),
-  execute: async ({ userAddress: _userAddress, chainId, tokenId, token0, token1, fee, liquidityPercentage, tickLower, tickUpper }) => {
+  execute: async ({ chainId, tokenId, token0, token1, fee, liquidityPercentage, tickLower, tickUpper }) => {
     try {
       const contracts = UNISWAP_V4_CONTRACTS[chainId];
       if (!contracts) {
