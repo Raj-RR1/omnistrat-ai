@@ -6,6 +6,7 @@ import { getAaveUserPosition, getAaveSupplyTx, getAaveWithdrawTx } from '../tool
 import { resolveEnsName, lookupEnsName, getEnsTextRecord, getOmniStratPreferences, getEnsNameForAddress, fetchEnsPreferences } from '../tools/ens-tool';
 import { getYellowNetworkInfo, getYellowSessionStatus, buildYellowDepositTx, buildYellowWithdrawTx } from '../tools/yellow-tool';
 import { getArcInfo, getArcSupportedChains, getGatewayBalance, buildGatewayDepositTx, buildUSDCBridgeTx } from '../tools/arc-tool';
+import { getUniswapV4Info, buildUniswapV4MintPositionTx, buildUniswapV4RemoveLiquidityTx } from '../tools/uniswap-v4-tool';
 
 const google = createGoogleGenerativeAI();
 const openai = createOpenAI();
@@ -53,10 +54,17 @@ ARC / USDC TOOLS (Chain-Abstracted USDC via Circle):
 - buildGatewayDepositTx: Build transactions to deposit USDC into Circle Gateway for a unified cross-chain balance. Use when user wants to "deposit into Gateway", "create unified balance", or "fund Gateway". Testnet chains: Sepolia (11155111), Base Sepolia (84532), Arc Testnet (5042002).
 - buildUSDCBridgeTx: Build transactions to bridge USDC via CCTP v2 (native burn-and-mint). Use when user wants to "bridge USDC", "send USDC to another chain". Prefer this over LI.FI when specifically bridging USDC — it's faster and uses native USDC (no wrapped tokens).
 
+UNISWAP V4 TOOLS (Liquidity Provision):
+- getUniswapV4Info: Get information about Uniswap v4 features (singleton PoolManager, hooks, concentrated liquidity). Use when user asks about Uniswap v4, LP positions, or providing liquidity.
+- buildUniswapV4MintPositionTx: Build transactions to add liquidity to a Uniswap v4 pool. Returns approve + mint transactions. Use when user wants to "add liquidity", "provide liquidity", "LP on Uniswap", or "mint a position". Requires token addresses and amounts in smallest units. Supports rangeType: "full", "medium" (default), "narrow".
+- buildUniswapV4RemoveLiquidityTx: Build transactions to remove liquidity from a Uniswap v4 position. Fees are auto-collected. Use when user wants to "remove liquidity", "withdraw from LP", or "close position". Requires the position tokenId.
+
 MULTI-STEP STRATEGIES:
 You can combine tools for complex strategies. For example:
 - "Bridge USDC from Ethereum and deposit into Aave on Arbitrum" → use getSwapQuote first, then getAaveSupplyTx.
 - "Withdraw from Aave and swap to ETH" → use getAaveWithdrawTx first, then getSwapQuote.
+- "Add liquidity to ETH/USDC on Uniswap v4 on Arbitrum" → use buildUniswapV4MintPositionTx.
+- "Withdraw from Aave, bridge to Arbitrum, and provide liquidity on Uniswap v4" → chain getAaveWithdrawTx, getSwapQuote, then buildUniswapV4MintPositionTx.
 
 RULES:
 1. CRITICAL: After ANY tool returns successfully, your text response MUST be extremely brief (one short sentence max). DO NOT list steps, amounts, transaction details, or descriptions — the UI already renders all of that in interactive cards. Good examples: "Here's your quote.", "Here's your Aave position.", "I've prepared the transactions for you." Bad examples: listing approve/supply steps, repeating amounts, describing what each transaction does.
@@ -76,6 +84,9 @@ Common token addresses:
 - USDC on Sepolia: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 - USDC on Base Sepolia: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
 - USDC on Arc Testnet: 0x3600000000000000000000000000000000000000 (native)
+- WETH on Ethereum: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+- WETH on Base: 0x4200000000000000000000000000000000000006
+- WETH on Optimism: 0x4200000000000000000000000000000000000006
 
 Token amounts must be in the smallest unit (e.g. 1 USDC = 1000000, 0.01 ETH = 10000000000000000).
 
@@ -151,6 +162,9 @@ export async function POST(req: Request) {
       getGatewayBalance,
       buildGatewayDepositTx,
       buildUSDCBridgeTx,
+      getUniswapV4Info,
+      buildUniswapV4MintPositionTx,
+      buildUniswapV4RemoveLiquidityTx,
     },
     maxSteps: 5,
   });

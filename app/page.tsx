@@ -713,6 +713,150 @@ function ArcTransactionCard({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function UniswapV4InfoCard({ output }: { output: any }) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Uniswap v4 info error: {output.error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 text-sm space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">&#129412;</span>
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">{output.name}</p>
+      </div>
+      <p className="text-zinc-600 dark:text-zinc-400">{output.description}</p>
+      {output.features && (
+        <div>
+          <p className="font-medium text-zinc-700 dark:text-zinc-300 mb-1">Features:</p>
+          <ul className="list-disc list-inside text-zinc-600 dark:text-zinc-400 space-y-0.5">
+            {output.features.map((f: string, i: number) => <li key={i}>{f}</li>)}
+          </ul>
+        </div>
+      )}
+      {output.lpFlow && (
+        <div className="p-2 rounded bg-pink-100 dark:bg-pink-900/40 text-zinc-700 dark:text-zinc-300">
+          <p className="font-medium mb-1">LP Flow:</p>
+          <ol className="list-decimal list-inside text-xs space-y-0.5">
+            {output.lpFlow.map((s: string, i: number) => <li key={i}>{s}</li>)}
+          </ol>
+        </div>
+      )}
+      {output.supportedChains && (
+        <div className="flex gap-2 flex-wrap">
+          {output.supportedChains.map((c: { chainId: number; name: string }) => (
+            <span key={c.chainId} className="px-2 py-0.5 text-xs bg-pink-100 dark:bg-pink-900/50 text-pink-800 dark:text-pink-300 rounded">
+              {c.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {output.links && (
+        <div className="flex gap-3 text-xs">
+          <a href={output.links.docs} target="_blank" rel="noopener noreferrer" className="text-pink-600 dark:text-pink-400 underline">Docs</a>
+          <a href={output.links.app} target="_blank" rel="noopener noreferrer" className="text-pink-600 dark:text-pink-400 underline">App</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function UniswapV4TransactionCard({
+  output,
+  onExecute,
+  onReset,
+  txStatus,
+  txHash,
+}: {
+  output: any;
+  onExecute: (tx: any) => void;
+  onReset?: () => void;
+  txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
+  txHash?: string;
+}) {
+  if (!output.success) {
+    return (
+      <div className="my-2 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-sm">
+        Uniswap v4 error: {output.error}
+      </div>
+    );
+  }
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const transactions = output.transactions || [];
+  const isMint = output.type === 'uniswap_v4_mint';
+  const title = isMint ? 'Uniswap v4: Add Liquidity' : 'Uniswap v4: Remove Liquidity';
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 text-sm space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">&#129412;</span>
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">{title}</p>
+        <span className="text-xs text-zinc-500">{output.chainName}</span>
+      </div>
+      {isMint && output.position && (
+        <div className="grid grid-cols-2 gap-1 text-zinc-700 dark:text-zinc-300 text-xs">
+          <span>Pool:</span>
+          <span>{output.pool?.token0?.symbol}/{output.pool?.token1?.symbol} ({output.pool?.feeLabel})</span>
+          <span>Amount:</span>
+          <span>{output.position.amount0?.formatted} {output.position.amount0?.symbol} + {output.position.amount1?.formatted} {output.position.amount1?.symbol}</span>
+          <span>Range:</span>
+          <span>{output.position.rangeType} (ticks {output.position.tickLower} to {output.position.tickUpper})</span>
+        </div>
+      )}
+      {!isMint && (
+        <p className="text-zinc-700 dark:text-zinc-300 text-xs">
+          Position #{output.tokenId} — removing {output.liquidityPercentage}% of liquidity
+        </p>
+      )}
+      {transactions.map((tx: any, idx: number) => (
+        <div key={idx} className="space-y-1">
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Step {tx.step}: {tx.description}
+          </p>
+          {idx === currentStep && (
+            <>
+              {txStatus === 'success' && txHash ? (
+                <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+                  Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                  {idx < transactions.length - 1 && (
+                    <button className="ml-2 underline" onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}>
+                      Next step
+                    </button>
+                  )}
+                </div>
+              ) : txStatus === 'error' ? (
+                <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+                  Transaction failed. Please try again.
+                  <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
+                </div>
+              ) : (
+                <button
+                  className="w-full px-4 py-2 font-semibold text-white bg-pink-500 rounded-lg hover:bg-pink-600 disabled:opacity-50"
+                  disabled={txStatus !== 'idle'}
+                  onClick={() => onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId: tx.chainId || output.chainId })}
+                >
+                  {txStatus === 'pending' ? 'Confirm in wallet...' : txStatus === 'confirming' ? 'Confirming...' : txStatus === 'switching' ? 'Switching chain...' : tx.name}
+                </button>
+              )}
+            </>
+          )}
+          {idx < currentStep && <p className="text-xs text-green-600 dark:text-green-400">Completed</p>}
+          {idx > currentStep && <p className="text-xs text-zinc-400">Waiting...</p>}
+        </div>
+      ))}
+      {output.note && (
+        <p className="text-xs text-pink-600 dark:text-pink-400 mt-2">{output.note}</p>
+      )}
+    </div>
+  );
+}
+
 function AavePositionCard({ output }: { output: { success: boolean; error?: string; position?: { totalCollateralUSD: string; totalDebtUSD: string; availableBorrowsUSD: string; healthFactor: string; ltv: string } } }) {
   if (!output.success) {
     return (
@@ -989,6 +1133,21 @@ export default function Home() {
                   if (invocation.toolName === 'buildGatewayDepositTx' || invocation.toolName === 'buildUSDCBridgeTx') {
                     return (
                       <ArcTransactionCard
+                        key={idx}
+                        output={invocation.result}
+                        onExecute={handleExecuteSwap}
+                        onReset={handleResetTx}
+                        txStatus={currentTxStatus}
+                        txHash={currentTxHash}
+                      />
+                    );
+                  }
+                  if (invocation.toolName === 'getUniswapV4Info') {
+                    return <UniswapV4InfoCard key={idx} output={invocation.result} />;
+                  }
+                  if (invocation.toolName === 'buildUniswapV4MintPositionTx' || invocation.toolName === 'buildUniswapV4RemoveLiquidityTx') {
+                    return (
+                      <UniswapV4TransactionCard
                         key={idx}
                         output={invocation.result}
                         onExecute={handleExecuteSwap}
