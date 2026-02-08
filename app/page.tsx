@@ -737,6 +737,101 @@ function ArcTransactionCard({
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CCTPRelayCard({
+  output,
+  onExecute,
+  onReset,
+  txStatus,
+  txHash,
+}: {
+  output: any;
+  onExecute: (tx: any) => void;
+  onReset?: () => void;
+  txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
+  txHash?: string;
+}) {
+  if (!output.success) {
+    const isWaiting = output.status === 'not_found' || (output.status && output.status !== 'complete');
+    return (
+      <div className={`my-2 p-3 rounded-lg text-sm ${isWaiting ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'}`}>
+        {output.error}
+      </div>
+    );
+  }
+
+  const [hasStarted, setHasStarted] = useState(false);
+  const activeTxStatus = hasStarted ? txStatus : 'idle';
+  const activeTxHash = hasStarted ? txHash : undefined;
+  const tx = output.transactions?.[0];
+  const destChainId = output.destinationChainId;
+  const explorerBase = destChainId ? EXPLORER_URLS[destChainId] || 'https://etherscan.io' : 'https://etherscan.io';
+  const sourceExplorer = output.sourceChainId ? EXPLORER_URLS[output.sourceChainId] || 'https://etherscan.io' : 'https://etherscan.io';
+
+  return (
+    <div className="my-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">&#9711;</span>
+        <p className="font-semibold text-zinc-900 dark:text-zinc-50">CCTP Bridge Relay</p>
+      </div>
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-zinc-700 dark:text-zinc-300 text-xs">
+        <span>From:</span>
+        <span>{output.sourceChainName}</span>
+        <span>To:</span>
+        <span>{output.destinationChainName}</span>
+        {output.amount?.formatted && (
+          <>
+            <span>Amount:</span>
+            <span>{output.amount.formatted} {output.amount.symbol}</span>
+          </>
+        )}
+        <span>Burn Tx:</span>
+        <span>
+          <a href={`${sourceExplorer}/tx/${output.sourceTxHash}`} target="_blank" rel="noopener noreferrer" className="underline break-all">
+            {output.sourceTxHash}
+          </a>
+        </span>
+      </div>
+      {tx && (
+        <div className="space-y-1">
+          <p className="text-zinc-600 dark:text-zinc-400">
+            {tx.description}
+          </p>
+          {activeTxStatus === 'success' && activeTxHash ? (
+            <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
+              USDC minted! Tx:{' '}
+              <a
+                href={`${explorerBase}/tx/${activeTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline break-all"
+              >
+                {activeTxHash}
+              </a>
+            </div>
+          ) : activeTxStatus === 'error' ? (
+            <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
+              Relay failed. Please try again.
+              <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
+            </div>
+          ) : (
+            <button
+              className="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              disabled={activeTxStatus !== 'idle'}
+              onClick={() => { setHasStarted(true); onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId: destChainId }); }}
+            >
+              {activeTxStatus === 'pending' ? 'Confirm in wallet...' : activeTxStatus === 'confirming' ? 'Confirming...' : activeTxStatus === 'switching' ? 'Switching chain...' : 'Relay & Mint USDC'}
+            </button>
+          )}
+        </div>
+      )}
+      {output.note && (
+        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">{output.note}</p>
+      )}
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function UniswapV4InfoCard({ output }: { output: any }) {
   if (!output.success) {
     return (
@@ -1061,7 +1156,7 @@ export default function Home() {
   });
   const { mutateAsync: sendTransaction, data: txHash, status: sendStatus, reset: resetTx } = useSendTransaction();
   const { mutateAsync: switchChain } = useSwitchChain();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isReceiptError } = useWaitForTransactionReceipt({ hash: txHash });
 
   const [txState, setTxState] = useState<'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error'>('idle');
   const [showYellowPanel, setShowYellowPanel] = useState(false);
@@ -1069,6 +1164,10 @@ export default function Home() {
   useEffect(() => {
     if (isConfirmed) setTxState('success');
   }, [isConfirmed]);
+
+  useEffect(() => {
+    if (isReceiptError) setTxState('error');
+  }, [isReceiptError]);
 
   async function handleExecuteSwap(txRequest: any) {
     try {
@@ -1194,6 +1293,18 @@ export default function Home() {
                   if (invocation.toolName === 'buildGatewayDepositTx' || invocation.toolName === 'buildUSDCBridgeTx') {
                     return (
                       <ArcTransactionCard
+                        key={idx}
+                        output={invocation.result}
+                        onExecute={handleExecuteSwap}
+                        onReset={handleResetTx}
+                        txStatus={currentTxStatus}
+                        txHash={currentTxHash}
+                      />
+                    );
+                  }
+                  if (invocation.toolName === 'completeCCTPBridge') {
+                    return (
+                      <CCTPRelayCard
                         key={idx}
                         output={invocation.result}
                         onExecute={handleExecuteSwap}

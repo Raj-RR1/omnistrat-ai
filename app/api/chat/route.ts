@@ -5,7 +5,7 @@ import { getSwapQuote, getSwapRoutes, getTokenBalances } from '../tools/lifi-too
 import { getAaveUserPosition, getAaveSupplyTx, getAaveWithdrawTx } from '../tools/aave-tool';
 import { resolveEnsName, lookupEnsName, getEnsTextRecord, getOmniStratPreferences, getEnsNameForAddress, fetchEnsPreferences } from '../tools/ens-tool';
 import { getYellowNetworkInfo, getYellowSessionStatus, buildYellowDepositTx, buildYellowWithdrawTx } from '../tools/yellow-tool';
-import { getArcInfo, getArcSupportedChains, getGatewayBalance, buildGatewayDepositTx, buildUSDCBridgeTx } from '../tools/arc-tool';
+import { getArcInfo, getArcSupportedChains, getGatewayBalance, buildGatewayDepositTx, buildUSDCBridgeTx, completeCCTPBridge } from '../tools/arc-tool';
 import { getUniswapV4Info, buildUniswapV4MintPositionTx, buildUniswapV4RemoveLiquidityTx } from '../tools/uniswap-v4-tool';
 
 const google = createGoogleGenerativeAI();
@@ -53,6 +53,7 @@ ARC / USDC TOOLS (Chain-Abstracted USDC via Circle):
 - getGatewayBalance: Query the user's unified USDC balance across all supported chains via Circle Gateway. Use when user asks "what's my total USDC", "unified balance", or "USDC across chains". Pass the user's wallet address as depositorAddress.
 - buildGatewayDepositTx: Build transactions to deposit USDC into Circle Gateway for a unified cross-chain balance. Use when user wants to "deposit into Gateway", "create unified balance", or "fund Gateway". Testnet chains: Sepolia (11155111), Base Sepolia (84532), Arc Testnet (5042002).
 - buildUSDCBridgeTx: Build transactions to bridge USDC via CCTP v2 (native burn-and-mint). Use when user wants to "bridge USDC", "send USDC to another chain". Prefer this over LI.FI when specifically bridging USDC — it's faster and uses native USDC (no wrapped tokens).
+- completeCCTPBridge: Complete a pending CCTP bridge by relaying the attestation to the destination chain. Use after a depositForBurn (bridge) transaction has confirmed but USDC hasn't arrived. Fetches Circle's attestation and builds a receiveMessage transaction to mint USDC on the destination. Use when user says "complete my bridge", "relay my transfer", "my USDC hasn't arrived", or "mint USDC on destination".
 
 UNISWAP V4 TOOLS (Liquidity Provision):
 - getUniswapV4Info: Get information about Uniswap v4 features (singleton PoolManager, hooks, concentrated liquidity). Use when user asks about Uniswap, Uniswap v4, LP positions, or providing liquidity. ALWAYS call this tool instead of answering from general knowledge.
@@ -162,6 +163,7 @@ export async function POST(req: Request) {
       getGatewayBalance,
       buildGatewayDepositTx,
       buildUSDCBridgeTx,
+      completeCCTPBridge,
       getUniswapV4Info,
       buildUniswapV4MintPositionTx,
       buildUniswapV4RemoveLiquidityTx,
