@@ -44,6 +44,9 @@ function SwapQuoteCard({
   }
 
   const { estimate } = output;
+  const [hasStarted, setHasStarted] = useState(false);
+  const activeTxStatus = hasStarted ? txStatus : 'idle';
+  const activeTxHash = hasStarted ? txHash : undefined;
 
   return (
     <div className="my-2 p-4 rounded-lg bg-zinc-100 dark:bg-zinc-900 border dark:border-zinc-700 text-sm space-y-2">
@@ -64,33 +67,33 @@ function SwapQuoteCard({
       </div>
       {output.transactionRequest && (
         <>
-          {txStatus === 'success' && txHash ? (
+          {activeTxStatus === 'success' && activeTxHash ? (
             <div className="mt-2 p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
               Swap executed! Tx:{' '}
               <a
-                href={`${EXPLORER_URLS[output.transactionRequest?.chainId] || 'https://etherscan.io'}/tx/${txHash}`}
+                href={`${EXPLORER_URLS[output.transactionRequest?.chainId] || 'https://etherscan.io'}/tx/${activeTxHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline"
+                className="underline break-all"
               >
-                {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                {activeTxHash}
               </a>
             </div>
-          ) : txStatus === 'error' ? (
+          ) : activeTxStatus === 'error' ? (
             <div className="mt-2 p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
               Transaction failed. Please try again.
             </div>
           ) : (
             <button
               className="mt-2 w-full px-4 py-2 font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50"
-              disabled={txStatus !== 'idle'}
-              onClick={() => onExecute(output.transactionRequest)}
+              disabled={activeTxStatus !== 'idle'}
+              onClick={() => { setHasStarted(true); onExecute(output.transactionRequest); }}
             >
-              {txStatus === 'switching'
+              {activeTxStatus === 'switching'
                 ? 'Switching chain...'
-                : txStatus === 'pending'
+                : activeTxStatus === 'pending'
                   ? 'Confirm in wallet...'
-                  : txStatus === 'confirming'
+                  : activeTxStatus === 'confirming'
                     ? 'Confirming...'
                     : 'Execute Swap'}
             </button>
@@ -650,6 +653,10 @@ function ArcTransactionCard({
   }
 
   const [currentStep, setCurrentStep] = useState(0);
+  const [completedHashes, setCompletedHashes] = useState<Record<number, string>>({});
+  const [hasStarted, setHasStarted] = useState(false);
+  const activeTxStatus = hasStarted ? txStatus : 'idle';
+  const activeTxHash = hasStarted ? txHash : undefined;
   const transactions = output.transactions || [];
   const amount = output.depositAmount || output.bridgeAmount;
   const isDeposit = output.type === 'gateway_deposit';
@@ -657,6 +664,8 @@ function ArcTransactionCard({
   const subtitle = isDeposit
     ? `Deposit ${amount?.formatted} ${amount?.symbol} on ${output.chainName}`
     : `Bridge ${amount?.formatted} ${amount?.symbol} from ${output.sourceChainName} to ${output.destinationChainName}`;
+  const chainId = output.chainId || output.sourceChainId;
+  const explorerBase = chainId ? EXPLORER_URLS[chainId] || 'https://etherscan.io' : 'https://etherscan.io';
 
   return (
     <div className="my-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm space-y-3">
@@ -674,16 +683,24 @@ function ArcTransactionCard({
           </p>
           {idx === currentStep && (
             <>
-              {txStatus === 'success' && txHash ? (
+              {activeTxStatus === 'success' && activeTxHash ? (
                 <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
-                  Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                  Done! Tx:{' '}
+                  <a
+                    href={`${explorerBase}/tx/${activeTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline break-all"
+                  >
+                    {activeTxHash}
+                  </a>
                   {idx < transactions.length - 1 && (
-                    <button className="ml-2 underline" onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}>
+                    <button className="ml-2 underline" onClick={() => { setCompletedHashes(prev => ({ ...prev, [idx]: activeTxHash })); onReset?.(); setCurrentStep(idx + 1); }}>
                       Next step
                     </button>
                   )}
                 </div>
-              ) : txStatus === 'error' ? (
+              ) : activeTxStatus === 'error' ? (
                 <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
                   Transaction failed. Please try again.
                   <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
@@ -691,15 +708,21 @@ function ArcTransactionCard({
               ) : (
                 <button
                   className="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                  disabled={txStatus !== 'idle'}
-                  onClick={() => onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId: output.chainId || output.sourceChainId })}
+                  disabled={activeTxStatus !== 'idle'}
+                  onClick={() => { setHasStarted(true); onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId }); }}
                 >
-                  {txStatus === 'pending' ? 'Confirm in wallet...' : txStatus === 'confirming' ? 'Confirming...' : txStatus === 'switching' ? 'Switching chain...' : tx.name}
+                  {activeTxStatus === 'pending' ? 'Confirm in wallet...' : activeTxStatus === 'confirming' ? 'Confirming...' : activeTxStatus === 'switching' ? 'Switching chain...' : tx.name}
                 </button>
               )}
             </>
           )}
-          {idx < currentStep && <p className="text-xs text-green-600 dark:text-green-400">Completed</p>}
+          {idx < currentStep && (
+            <p className="text-xs text-green-600 dark:text-green-400">
+              Completed{completedHashes[idx] && (
+                <> — Tx: <a href={`${explorerBase}/tx/${completedHashes[idx]}`} target="_blank" rel="noopener noreferrer" className="underline break-all">{completedHashes[idx]}</a></>
+              )}
+            </p>
+          )}
           {idx > currentStep && <p className="text-xs text-zinc-400">Waiting...</p>}
         </div>
       ))}
@@ -788,9 +811,14 @@ function UniswapV4TransactionCard({
   }
 
   const [currentStep, setCurrentStep] = useState(0);
+  const [completedHashes, setCompletedHashes] = useState<Record<number, string>>({});
+  const [hasStarted, setHasStarted] = useState(false);
+  const activeTxStatus = hasStarted ? txStatus : 'idle';
+  const activeTxHash = hasStarted ? txHash : undefined;
   const transactions = output.transactions || [];
   const isMint = output.type === 'uniswap_v4_mint';
   const title = isMint ? 'Uniswap v4: Add Liquidity' : 'Uniswap v4: Remove Liquidity';
+  const explorerBase = EXPLORER_URLS[output.chainId] || 'https://etherscan.io';
 
   return (
     <div className="my-2 p-4 rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 text-sm space-y-3">
@@ -821,16 +849,24 @@ function UniswapV4TransactionCard({
           </p>
           {idx === currentStep && (
             <>
-              {txStatus === 'success' && txHash ? (
+              {activeTxStatus === 'success' && activeTxHash ? (
                 <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
-                  Done! Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                  Done! Tx:{' '}
+                  <a
+                    href={`${explorerBase}/tx/${activeTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline break-all"
+                  >
+                    {activeTxHash}
+                  </a>
                   {idx < transactions.length - 1 && (
-                    <button className="ml-2 underline" onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}>
+                    <button className="ml-2 underline" onClick={() => { setCompletedHashes(prev => ({ ...prev, [idx]: activeTxHash })); onReset?.(); setCurrentStep(idx + 1); }}>
                       Next step
                     </button>
                   )}
                 </div>
-              ) : txStatus === 'error' ? (
+              ) : activeTxStatus === 'error' ? (
                 <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
                   Transaction failed. Please try again.
                   <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
@@ -838,15 +874,21 @@ function UniswapV4TransactionCard({
               ) : (
                 <button
                   className="w-full px-4 py-2 font-semibold text-white bg-pink-500 rounded-lg hover:bg-pink-600 disabled:opacity-50"
-                  disabled={txStatus !== 'idle'}
-                  onClick={() => onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId: tx.chainId || output.chainId })}
+                  disabled={activeTxStatus !== 'idle'}
+                  onClick={() => { setHasStarted(true); onExecute({ to: tx.to, data: tx.data, value: tx.value, chainId: tx.chainId || output.chainId }); }}
                 >
-                  {txStatus === 'pending' ? 'Confirm in wallet...' : txStatus === 'confirming' ? 'Confirming...' : txStatus === 'switching' ? 'Switching chain...' : tx.name}
+                  {activeTxStatus === 'pending' ? 'Confirm in wallet...' : activeTxStatus === 'confirming' ? 'Confirming...' : activeTxStatus === 'switching' ? 'Switching chain...' : tx.name}
                 </button>
               )}
             </>
           )}
-          {idx < currentStep && <p className="text-xs text-green-600 dark:text-green-400">Completed</p>}
+          {idx < currentStep && (
+            <p className="text-xs text-green-600 dark:text-green-400">
+              Completed{completedHashes[idx] && (
+                <> — Tx: <a href={`${explorerBase}/tx/${completedHashes[idx]}`} target="_blank" rel="noopener noreferrer" className="underline break-all">{completedHashes[idx]}</a></>
+              )}
+            </p>
+          )}
           {idx > currentStep && <p className="text-xs text-zinc-400">Waiting...</p>}
         </div>
       ))}
@@ -913,6 +955,10 @@ function AaveTransactionCard({
   }
 
   const [currentStep, setCurrentStep] = useState(0);
+  const [completedHashes, setCompletedHashes] = useState<Record<number, string>>({});
+  const [hasStarted, setHasStarted] = useState(false);
+  const activeTxStatus = hasStarted ? txStatus : 'idle';
+  const activeTxHash = hasStarted ? txHash : undefined;
   const transactions = output.transactions;
 
   // Try to format amount from the tool args
@@ -920,6 +966,7 @@ function AaveTransactionCard({
   const asset = args?.asset?.toLowerCase();
   const chainNames: Record<number, string> = { 1: 'Ethereum', 42161: 'Arbitrum', 137: 'Polygon', 10: 'Optimism', 8453: 'Base' };
   const chainName = args?.chainId ? chainNames[args.chainId] || `Chain ${args.chainId}` : '';
+  const explorerBase = EXPLORER_URLS[args?.chainId] || 'https://etherscan.io';
 
   // Known token addresses to symbols
   const TOKEN_SYMBOLS: Record<string, string> = {
@@ -949,27 +996,27 @@ function AaveTransactionCard({
           </p>
           {idx === currentStep && (
             <>
-              {txStatus === 'success' && txHash ? (
+              {activeTxStatus === 'success' && activeTxHash ? (
                 <div className="p-2 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs">
                   Done! Tx:{' '}
                   <a
-                    href={`${EXPLORER_URLS[tx.transactionRequest?.chainId] || 'https://etherscan.io'}/tx/${txHash}`}
+                    href={`${explorerBase}/tx/${activeTxHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline"
+                    className="underline break-all"
                   >
-                    {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                    {activeTxHash}
                   </a>
                   {idx < transactions.length - 1 && (
                     <button
                       className="ml-2 underline text-green-700 dark:text-green-300"
-                      onClick={() => { onReset?.(); setCurrentStep(idx + 1); }}
+                      onClick={() => { setCompletedHashes(prev => ({ ...prev, [idx]: activeTxHash })); onReset?.(); setCurrentStep(idx + 1); }}
                     >
                       Next step
                     </button>
                   )}
                 </div>
-              ) : txStatus === 'error' ? (
+              ) : activeTxStatus === 'error' ? (
                 <div className="p-2 rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs">
                   Transaction failed. Please try again.
                   <button className="ml-2 underline" onClick={() => onReset?.()}>Retry</button>
@@ -977,14 +1024,14 @@ function AaveTransactionCard({
               ) : (
                 <button
                   className="w-full px-4 py-2 font-semibold text-white bg-purple-500 rounded-lg hover:bg-purple-600 disabled:opacity-50"
-                  disabled={txStatus !== 'idle'}
-                  onClick={() => onExecute(tx.transactionRequest)}
+                  disabled={activeTxStatus !== 'idle'}
+                  onClick={() => { setHasStarted(true); onExecute(tx.transactionRequest); }}
                 >
-                  {txStatus === 'switching'
+                  {activeTxStatus === 'switching'
                     ? 'Switching chain...'
-                    : txStatus === 'pending'
+                    : activeTxStatus === 'pending'
                       ? 'Confirm in wallet...'
-                      : txStatus === 'confirming'
+                      : activeTxStatus === 'confirming'
                         ? 'Confirming...'
                         : `Execute: ${tx.description}`}
                 </button>
@@ -992,7 +1039,11 @@ function AaveTransactionCard({
             </>
           )}
           {idx < currentStep && (
-            <p className="text-xs text-green-600 dark:text-green-400">Completed</p>
+            <p className="text-xs text-green-600 dark:text-green-400">
+              Completed{completedHashes[idx] && (
+                <> — Tx: <a href={`${explorerBase}/tx/${completedHashes[idx]}`} target="_blank" rel="noopener noreferrer" className="underline break-all">{completedHashes[idx]}</a></>
+              )}
+            </p>
           )}
           {idx > currentStep && (
             <p className="text-xs text-zinc-400">Waiting...</p>
