@@ -312,7 +312,9 @@ export const buildUSDCBridgeTx = tool({
           mintRecipient,
           sourceUSDC,
           destinationCaller,
+          // TODO: Make maxFee configurable or fetch dynamically for production
           BigInt(500),        // maxFee: 0.0005 USDC (per Circle's testnet example)
+          // TODO: Make minFinalityThreshold configurable (1000=Fast, 2000=Standard)
           1000,               // minFinalityThreshold: Fast Transfer
         ],
       });
