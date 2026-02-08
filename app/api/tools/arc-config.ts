@@ -96,6 +96,44 @@ export const ARC_SUPPORTED_CHAINS = {
   ],
 } as const;
 
+// CCTP v2 MessageTransmitterV2 contract addresses
+// Source: https://developers.circle.com/cctp/evm-smart-contracts
+export const CCTP_MESSAGE_TRANSMITTER: Record<number, `0x${string}`> = {
+  // Testnet (same address on all testnet chains via CREATE2)
+  11155111: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+  84532: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+  5042002: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+  43113: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+  // Mainnet (same address on all mainnet chains via CREATE2)
+  1: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+  42161: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+  8453: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+  137: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+  10: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+};
+
+// Circle attestation API (Iris) endpoints
+export const CCTP_ATTESTATION_API = {
+  testnet: 'https://iris-api-sandbox.circle.com/v2/messages',
+  mainnet: 'https://iris-api.circle.com/v2/messages',
+} as const;
+
+// Reverse lookup: domain ID → chain ID
+export const DOMAIN_TO_CHAIN_ID: Record<number, number> = {
+  // Testnet
+  0: 11155111,  // Ethereum Sepolia
+  1: 43113,     // Avalanche Fuji
+  6: 84532,     // Base Sepolia
+  26: 5042002,  // Arc Testnet
+  // Mainnet
+  // 0: 1,      // Ethereum (conflicts with testnet, handled by network context)
+  // 1: 43114,  // Avalanche
+  3: 42161,     // Arbitrum
+  // 6: 8453,   // Base (conflicts with testnet)
+  7: 137,       // Polygon PoS
+  2: 10,        // Optimism
+};
+
 // ABIs
 
 export const GATEWAY_WALLET_ABI = [
@@ -123,6 +161,19 @@ export const CCTP_TOKEN_MESSENGER_ABI = [
       { name: 'destinationCaller', type: 'bytes32' },
       { name: 'maxFee', type: 'uint256' },
       { name: 'minFinalityThreshold', type: 'uint32' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const;
+
+export const MESSAGE_TRANSMITTER_ABI = [
+  {
+    name: 'receiveMessage',
+    type: 'function',
+    inputs: [
+      { name: 'message', type: 'bytes' },
+      { name: 'attestation', type: 'bytes' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',

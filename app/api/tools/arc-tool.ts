@@ -8,8 +8,12 @@ import {
   GATEWAY_WALLET_ABI,
   CCTP_TOKEN_MESSENGER_ABI,
   ERC20_APPROVE_ABI,
+  MESSAGE_TRANSMITTER_ABI,
   CCTP_DOMAINS,
   CCTP_TOKEN_MESSENGER,
+  CCTP_MESSAGE_TRANSMITTER,
+  CCTP_ATTESTATION_API,
+  DOMAIN_TO_CHAIN_ID,
   USDC_ADDRESSES,
   ARC_SUPPORTED_CHAINS,
 } from './arc-config';
@@ -359,6 +363,141 @@ export const buildUSDCBridgeTx = tool({
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to build CCTP bridge transaction';
+      return {
+        success: false,
+        error: message,
+      };
+    }
+  },
+});
+
+export const completeCCTPBridge = tool({
+  description:
+    'Complete a CCTP USDC bridge by relaying the attestation to the destination chain. Use after a depositForBurn transaction has confirmed. This fetches the attestation from Circle and builds a receiveMessage transaction to mint USDC on the destination chain. Use when the user says "complete my bridge", "relay my CCTP transfer", "mint my USDC on destination", or when a previous bridge burn succeeded but USDC hasn\'t arrived.',
+  parameters: z.object({
+    sourceTxHash: z.string().describe('The transaction hash of the depositForBurn transaction on the source chain'),
+    sourceChainId: z.number().describe('The source chain ID where the burn happened (e.g., 11155111 = Sepolia)'),
+  }),
+  execute: async ({ sourceTxHash, sourceChainId }) => {
+    try {
+      // Get source domain from chain ID
+      const sourceDomain = CCTP_DOMAINS[sourceChainId];
+      if (sourceDomain === undefined) {
+        return {
+          success: false,
+          error: `No CCTP domain for chain ${sourceChainId}`,
+        };
+      }
+
+      const sourceChain = ARC_SUPPORTED_CHAINS[NETWORK].find(c => c.chainId === sourceChainId);
+
+      // Fetch attestation from Circle's Iris API
+      const attestationUrl = `${CCTP_ATTESTATION_API[NETWORK]}/${sourceDomain}?transactionHash=${sourceTxHash}`;
+      const response = await fetch(attestationUrl);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `Attestation API returned ${response.status}: ${errorText}`,
+        };
+      }
+
+      const result = await response.json();
+      const messages = result.messages;
+
+      if (!messages || messages.length === 0) {
+        return {
+          success: false,
+          status: 'not_found',
+          error: 'No attestation found for this transaction yet. The burn may still be processing. Try again in a minute.',
+        };
+      }
+
+      const msg = messages[0];
+
+      if (msg.status !== 'complete') {
+        return {
+          success: false,
+          status: msg.status,
+          error: `Attestation is not ready yet (status: ${msg.status}). Try again in a minute.`,
+        };
+      }
+
+      // Extract message and attestation bytes
+      const messageBytes = msg.message;
+      const attestationBytes = msg.attestation;
+
+      if (!messageBytes || !attestationBytes) {
+        return {
+          success: false,
+          error: 'Attestation is complete but message or attestation bytes are missing.',
+        };
+      }
+
+      // Determine destination domain from Iris API response
+      // Iris v2 nests it under decodedMessage.destinationDomain
+      const destDomain: number | undefined =
+        Number(msg.decodedMessage?.destinationDomain ?? msg.destinationDomain ?? msg.destination_domain);
+      const destChainId = destDomain !== undefined ? DOMAIN_TO_CHAIN_ID[destDomain] : undefined;
+      if (!destChainId) {
+        return {
+          success: false,
+          error: `Unknown destination domain ${destDomain}. Cannot determine destination chain.`,
+        };
+      }
+
+      const destChain = ARC_SUPPORTED_CHAINS[NETWORK].find(c => c.chainId === destChainId);
+      const messageTransmitter = CCTP_MESSAGE_TRANSMITTER[destChainId];
+      if (!messageTransmitter) {
+        return {
+          success: false,
+          error: `No MessageTransmitter contract configured for destination chain ${destChainId}`,
+        };
+      }
+
+      // Build receiveMessage transaction
+      const receiveMessageData = encodeFunctionData({
+        abi: MESSAGE_TRANSMITTER_ABI,
+        functionName: 'receiveMessage',
+        args: [messageBytes as `0x${string}`, attestationBytes as `0x${string}`],
+      });
+
+      // Extract amount from Iris API response
+      // Iris v2 nests it under decodedMessage.decodedMessageBody.amount
+      const rawAmount: string | undefined =
+        (msg.decodedMessage?.decodedMessageBody?.amount ?? msg.amount)?.toString();
+      const amount = rawAmount ? formatTokenAmount(rawAmount, 6) : 'unknown';
+
+      return {
+        success: true,
+        type: 'cctp_relay',
+        status: 'ready',
+        sourceChainId,
+        sourceChainName: sourceChain?.name || `Chain ${sourceChainId}`,
+        destinationChainId: destChainId,
+        destinationChainName: destChain?.name || `Chain ${destChainId}`,
+        sourceTxHash,
+        amount: {
+          raw: rawAmount,
+          formatted: amount,
+          symbol: 'USDC',
+        },
+        transactions: [
+          {
+            step: 1,
+            name: 'Complete Bridge',
+            description: `Relay attestation to mint ${amount} USDC on ${destChain?.name || `Chain ${destChainId}`}`,
+            to: messageTransmitter,
+            data: receiveMessageData,
+            value: '0',
+            chainId: destChainId,
+          },
+        ],
+        note: `This will submit Circle's attestation to the MessageTransmitter on ${destChain?.name || `Chain ${destChainId}`}, which will mint USDC directly to your wallet.`,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to build CCTP relay transaction';
       return {
         success: false,
         error: message,
