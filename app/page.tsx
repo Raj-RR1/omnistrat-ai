@@ -736,7 +736,20 @@ function ArcTransactionCard({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface CCTPRelayOutput {
+  success: boolean;
+  error?: string;
+  status?: string;
+  transactions?: { step: number; name: string; description: string; to: string; data: string; value: string; chainId?: number }[];
+  sourceChainId?: number;
+  sourceChainName?: string;
+  destinationChainId?: number;
+  destinationChainName?: string;
+  sourceTxHash?: string;
+  amount?: { raw?: string; formatted?: string; symbol: string };
+  note?: string;
+}
+
 function CCTPRelayCard({
   output,
   onExecute,
@@ -744,8 +757,8 @@ function CCTPRelayCard({
   txStatus,
   txHash,
 }: {
-  output: any;
-  onExecute: (tx: any) => void;
+  output: CCTPRelayOutput;
+  onExecute: (tx: { to: string; data: string; value: string; chainId?: number }) => void;
   onReset?: () => void;
   txStatus: 'idle' | 'switching' | 'pending' | 'confirming' | 'success' | 'error';
   txHash?: string;
