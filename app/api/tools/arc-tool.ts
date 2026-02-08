@@ -292,6 +292,8 @@ export const buildUSDCBridgeTx = tool({
       // Convert user address to bytes32 for mintRecipient
       // pad left-pads the address to 32 bytes
       const mintRecipient = pad(userAddress as `0x${string}`, { size: 32 });
+      // bytes32(0) allows any address to call receiveMessage on destination
+      const destinationCaller = pad('0x00' as `0x${string}`, { size: 32 });
 
       // Build approve transaction
       const approveData = encodeFunctionData({
@@ -300,11 +302,19 @@ export const buildUSDCBridgeTx = tool({
         args: [tokenMessenger, BigInt(amount)],
       });
 
-      // Build depositForBurn transaction
+      // Build depositForBurn transaction (CCTP v2: 7 params)
       const depositForBurnData = encodeFunctionData({
         abi: CCTP_TOKEN_MESSENGER_ABI,
         functionName: 'depositForBurn',
-        args: [BigInt(amount), destinationDomain, mintRecipient, sourceUSDC],
+        args: [
+          BigInt(amount),
+          destinationDomain,
+          mintRecipient,
+          sourceUSDC,
+          destinationCaller,
+          BigInt(500),        // maxFee: 0.0005 USDC (per Circle's testnet example)
+          1000,               // minFinalityThreshold: Fast Transfer
+        ],
       });
 
       const formattedAmount = formatTokenAmount(amount, 6);

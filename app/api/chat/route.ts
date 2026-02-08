@@ -48,14 +48,14 @@ YELLOW NETWORK TOOLS (State Channels for Instant Operations):
 - buildYellowWithdrawTx: Build a transaction to withdraw from Yellow Network. Use when user wants to "close Yellow session" or "withdraw from Yellow".
 
 ARC / USDC TOOLS (Chain-Abstracted USDC via Circle):
-- getArcInfo: Get information about Circle Arc network, Gateway unified balance, and CCTP native bridging. Use when user asks about Arc, chain-abstracted USDC, or Circle.
+- getArcInfo: Get information about Circle Arc network, Gateway unified balance, and CCTP native bridging. Use when user asks about Arc, Circle, CCTP, USDC bridging, or chain-abstracted USDC. ALWAYS call this tool instead of answering from general knowledge.
 - getArcSupportedChains: List all chains supported by Arc/Gateway/CCTP. Use when user asks "what chains does Arc support" or "where can I bridge USDC".
 - getGatewayBalance: Query the user's unified USDC balance across all supported chains via Circle Gateway. Use when user asks "what's my total USDC", "unified balance", or "USDC across chains". Pass the user's wallet address as depositorAddress.
 - buildGatewayDepositTx: Build transactions to deposit USDC into Circle Gateway for a unified cross-chain balance. Use when user wants to "deposit into Gateway", "create unified balance", or "fund Gateway". Testnet chains: Sepolia (11155111), Base Sepolia (84532), Arc Testnet (5042002).
 - buildUSDCBridgeTx: Build transactions to bridge USDC via CCTP v2 (native burn-and-mint). Use when user wants to "bridge USDC", "send USDC to another chain". Prefer this over LI.FI when specifically bridging USDC — it's faster and uses native USDC (no wrapped tokens).
 
 UNISWAP V4 TOOLS (Liquidity Provision):
-- getUniswapV4Info: Get information about Uniswap v4 features (singleton PoolManager, hooks, concentrated liquidity). Use when user asks about Uniswap v4, LP positions, or providing liquidity.
+- getUniswapV4Info: Get information about Uniswap v4 features (singleton PoolManager, hooks, concentrated liquidity). Use when user asks about Uniswap, Uniswap v4, LP positions, or providing liquidity. ALWAYS call this tool instead of answering from general knowledge.
 - buildUniswapV4MintPositionTx: Build transactions to add liquidity to a Uniswap v4 pool. Returns approve + mint transactions. Use when user wants to "add liquidity", "provide liquidity", "LP on Uniswap", or "mint a position". Requires token addresses and amounts in smallest units. Supports rangeType: "full", "medium" (default), "narrow".
 - buildUniswapV4RemoveLiquidityTx: Build transactions to remove liquidity from a Uniswap v4 position. Fees are auto-collected. Use when user wants to "remove liquidity", "withdraw from LP", or "close position". Requires the position tokenId.
 

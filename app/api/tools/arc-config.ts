@@ -120,8 +120,11 @@ export const CCTP_TOKEN_MESSENGER_ABI = [
       { name: 'destinationDomain', type: 'uint32' },
       { name: 'mintRecipient', type: 'bytes32' },
       { name: 'burnToken', type: 'address' },
+      { name: 'destinationCaller', type: 'bytes32' },
+      { name: 'maxFee', type: 'uint256' },
+      { name: 'minFinalityThreshold', type: 'uint32' },
     ],
-    outputs: [{ name: 'nonce', type: 'uint64' }],
+    outputs: [],
     stateMutability: 'nonpayable',
   },
 ] as const;

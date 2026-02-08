@@ -1,19 +1,19 @@
 # OmniStrat AI
 
-AI-powered DeFi strategy assistant that unifies cross-chain operations through natural language. Ask it to swap tokens, bridge USDC, supply to lending protocols, or manage state channels — all from a single chat interface.
+AI-powered DeFi strategy assistant that unifies cross-chain operations through natural language. Ask it to swap tokens, bridge USDC, supply to lending protocols, or manage state channels, all from a single chat interface.
 
 Built for [Hack Money 2026](https://ethglobal.com/events/hackmoney2026) by ETHGlobal.
 
 ## Features
 
-- **Natural Language DeFi** — Describe what you want ("swap 100 USDC to ETH on Arbitrum") and the AI builds and presents the transactions for you to approve
-- **Cross-Chain Swaps & Bridges** — Token swaps and bridges across 10+ chains via LI.FI with route comparison and gas estimation
-- **Unified USDC Balance** — View and manage a single USDC balance across all chains using Circle Gateway
-- **Native USDC Bridging** — Burn-and-mint USDC transfers via Circle CCTP v2 — no wrapped tokens
-- **Aave v3 Lending** — Supply and withdraw assets on Aave v3 with position tracking across chains
-- **ENS Identity** — Resolve ENS names, read on-chain profiles, and store DeFi preferences as ENS text records
-- **Yellow Network State Channels** — Instant, gas-free off-chain operations with on-chain settlement
-- **Multi-Model AI** — Supports OpenAI GPT-4o and Google Gemini 2.0 Flash (configurable via env var)
+- **Natural Language DeFi**: Describe what you want ("swap 100 USDC to ETH on Arbitrum") and the AI builds and presents the transactions for you to approve
+- **Cross-Chain Swaps & Bridges**: Token swaps and bridges across 10+ chains via LI.FI with route comparison and gas estimation
+- **Unified USDC Balance**: View and manage a single USDC balance across all chains using Circle Gateway
+- **Native USDC Bridging**: Burn-and-mint USDC transfers via Circle CCTP v2, no wrapped tokens
+- **Aave v3 Lending**: Supply and withdraw assets on Aave v3 with position tracking across chains
+- **ENS Identity**: Resolve ENS names, read on-chain profiles, and store DeFi preferences as ENS text records
+- **Yellow Network State Channels**: Instant, gas-free off-chain operations with on-chain settlement
+- **Multi-Model AI**: Supports OpenAI GPT-4o and Google Gemini 2.0 Flash (configurable via env var)
 
 ## Integrated Protocols
 
